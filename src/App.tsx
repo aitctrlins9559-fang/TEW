@@ -618,6 +618,84 @@ export default function App() {
     }
   };
 
+  // Fetch cloud data manually
+  const handleFetchCloudData = async (url: string): Promise<boolean> => {
+    if (!url) {
+      showToast('請先輸入雲端同步網址', false);
+      return false;
+    }
+    showToast('正在從雲端讀取持股數據...');
+    try {
+      let data: unknown = null;
+      try {
+        const res = await fetch(url, { method: 'GET' });
+        if (res.ok) {
+          const json = await res.json();
+          data = json.data || json;
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        const resPost = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'read', password: adminPassword }),
+        });
+        if (resPost.ok) {
+          const jsonPost = await resPost.json();
+          data = jsonPost.data || jsonPost;
+        }
+      }
+
+      if (Array.isArray(data) && data.length > 0) {
+        const normalized = normalizePortfolio(data);
+        setPortfolio(normalized);
+        localStorage.setItem('stock_radar_data', JSON.stringify(normalized));
+        showToast(`✅ 成功從雲端讀取 ${normalized.length} 筆持股數據！`);
+        playSuccessSound();
+        fetchRealtimePrices(true);
+        return true;
+      } else {
+        showToast('雲端未返回有效的持股資料', false);
+        return false;
+      }
+    } catch {
+      showToast('連線至雲端網址失敗，請檢查權限與網址', false);
+      return false;
+    }
+  };
+
+  // Push local data to cloud
+  const handlePushCloudData = async (url: string): Promise<boolean> => {
+    if (!url) {
+      showToast('請先輸入雲端同步網址', false);
+      return false;
+    }
+    showToast('正在備份持股至雲端...');
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ password: adminPassword, data: portfolio }),
+      });
+      const json = await res.json();
+      if (json.status === 'success' || json.success) {
+        setLastCloudWriteTime(`${getTaiwanDateString()} ${getTaiwanTimeString()}`);
+        showToast('✅ 持股部位已成功推送備份至雲端！');
+        playSuccessSound();
+        return true;
+      } else {
+        showToast(json.message || '雲端同步失敗', false);
+        return false;
+      }
+    } catch {
+      showToast('推送雲端失敗，請確認網路連線與 GAS 部署權限', false);
+      return false;
+    }
+  };
+
   // AI Copilot analysis request
   const handleRunAIAnalysis = async () => {
     setIsAIAnalyzing(true);
@@ -939,6 +1017,9 @@ export default function App() {
           setIsSyncModalOpen(false);
           showToast(url ? '雲端網址已設定' : '已恢復本機模式');
         }}
+        onFetchFromCloud={handleFetchCloudData}
+        onPushToCloud={handlePushCloudData}
+        isAdmin={isAdmin}
       />
 
       <ActionModal
