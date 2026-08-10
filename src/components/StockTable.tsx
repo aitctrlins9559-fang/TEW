@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Download, Upload, CloudUpload, Box, Unlock } from 'lucide-react';
+import { PieChart, Download, Upload, CloudUpload, Box, Unlock, Plus } from 'lucide-react';
 import { StockPosition } from '../types';
 import { formatMoney, escapeHtml } from '../utils/format';
 import { playClickSound } from '../utils/audio';
@@ -14,6 +14,7 @@ interface StockTableProps {
   onOpenTxHistory: (stockId: string) => void;
   onOpenEditModal: (stockId: string) => void;
   onDeleteStock: (stockId: string) => void;
+  onOpenAddModal: () => void;
   onToggleAdmin: () => void;
   onPublishToGlobal: () => void;
   onExportData: () => void;
@@ -30,6 +31,7 @@ export const StockTable: React.FC<StockTableProps> = ({
   onOpenTxHistory,
   onOpenEditModal,
   onDeleteStock,
+  onOpenAddModal,
   onToggleAdmin,
   onPublishToGlobal,
   onExportData,
@@ -48,28 +50,44 @@ export const StockTable: React.FC<StockTableProps> = ({
           </span>
         </h2>
 
-        {isAdmin && (
-          <div className="flex flex-wrap gap-2.5">
-            <button
-              onClick={onPublishToGlobal}
-              className="text-xs bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact shadow-[0_0_10px_rgba(56,189,248,0.15)]"
-            >
-              <CloudUpload className="w-4 h-4" /> 強制覆蓋雲端
-            </button>
-            <button
-              onClick={onExportData}
-              className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-            >
-              <Download className="w-4 h-4" /> 備份
-            </button>
-            <button
-              onClick={onImportData}
-              className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-            >
-              <Upload className="w-4 h-4" /> 還原
-            </button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            onClick={() => {
+              playClickSound();
+              if (!isAdmin) {
+                onToggleAdmin();
+              } else {
+                onOpenAddModal();
+              }
+            }}
+            className="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+          >
+            <Plus className="w-4 h-4" /> 新增部位
+          </button>
+
+          {isAdmin && (
+            <>
+              <button
+                onClick={onPublishToGlobal}
+                className="text-xs bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact shadow-[0_0_10px_rgba(56,189,248,0.15)]"
+              >
+                <CloudUpload className="w-4 h-4" /> 強制覆蓋雲端
+              </button>
+              <button
+                onClick={onExportData}
+                className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
+              >
+                <Download className="w-4 h-4" /> 備份
+              </button>
+              <button
+                onClick={onImportData}
+                className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
+              >
+                <Upload className="w-4 h-4" /> 還原
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">

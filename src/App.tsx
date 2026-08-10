@@ -832,6 +832,10 @@ export default function App() {
             }
           }}
           onDeleteStock={handleDeleteStock}
+          onOpenAddModal={() => {
+            setEditStock(null);
+            setIsStockModalOpen(true);
+          }}
           onToggleAdmin={handleToggleAdmin}
           onPublishToGlobal={() => {
             if (cloudSyncUrl && isAdmin) {
