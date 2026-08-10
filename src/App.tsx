@@ -43,7 +43,7 @@ import {
   playShieldBreakSound,
   playClickSound,
 } from './utils/audio';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, PieChart, BarChart2, Calendar } from 'lucide-react';
 
 const INITIAL_PORTFOLIO: StockPosition[] = [
   {
@@ -116,6 +116,9 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [isRedUp, setIsRedUp] = useState(true);
   const [isPrivacy, setIsPrivacy] = useState(false);
+
+  // Mobile quick view mode selector ('positions' | 'charts' | 'analytics' | 'all')
+  const [activeMobileTab, setActiveMobileTab] = useState<'positions' | 'charts' | 'analytics' | 'all'>('positions');
 
   const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true);
   const [activeRefreshInterval, setActiveRefreshInterval] = useState(60);
@@ -832,142 +835,209 @@ export default function App() {
           onToggleAdmin={handleToggleAdmin}
         />
 
-        {/* Market Indices Section */}
-        <MarketIndices
-          indices={indices}
-          twiiChangePct={twiiChangePct}
-          portfolioTodayPct={portfolioTodayPct}
-          isRedUp={isRedUp}
-          onSelectIndex={(symbol, market, name) => {
-            setSelectedChartTarget({ symbol, market, name });
-            const chartCard = document.getElementById('singleStockChartCard');
-            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
-        />
+        {/* Mobile Quick Segment Switcher Bar */}
+        <div className="md:hidden sticky top-2 z-40 bg-slate-900/90 backdrop-blur-xl p-1.5 rounded-2xl border border-white/10 shadow-2xl flex items-center justify-between text-xs font-bold gap-1 my-1">
+          <button
+            onClick={() => {
+              playClickSound();
+              setActiveMobileTab('positions');
+            }}
+            className={`flex-1 py-2 px-1.5 rounded-xl text-center transition flex items-center justify-center gap-1 ${
+              activeMobileTab === 'positions' || activeMobileTab === 'all'
+                ? 'bg-sky-500 text-slate-950 font-black shadow-lg shadow-sky-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <PieChart className="w-3.5 h-3.5" />
+            <span>持股部位</span>
+          </button>
+          <button
+            onClick={() => {
+              playClickSound();
+              setActiveMobileTab('charts');
+            }}
+            className={`flex-1 py-2 px-1.5 rounded-xl text-center transition flex items-center justify-center gap-1 ${
+              activeMobileTab === 'charts'
+                ? 'bg-purple-500 text-white font-black shadow-lg shadow-purple-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>走勢大盤</span>
+          </button>
+          <button
+            onClick={() => {
+              playClickSound();
+              setActiveMobileTab('analytics');
+            }}
+            className={`flex-1 py-2 px-1.5 rounded-xl text-center transition flex items-center justify-center gap-1 ${
+              activeMobileTab === 'analytics'
+                ? 'bg-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>股利分析</span>
+          </button>
+          <button
+            onClick={() => {
+              playClickSound();
+              setActiveMobileTab('all');
+            }}
+            className={`py-2 px-2 rounded-xl text-center transition text-[11px] ${
+              activeMobileTab === 'all'
+                ? 'bg-slate-700 text-white font-bold'
+                : 'text-slate-500 hover:text-slate-300'
+            }`}
+            title="切換顯示全部區塊"
+          >
+            全展
+          </button>
+        </div>
 
-        {/* Lunar Fortune & Mindset Card */}
-        <LunarFortuneCard />
+        {/* 1. HOLDINGS POSITIONS & KPIS SECTION */}
+        {(activeMobileTab === 'positions' || activeMobileTab === 'all') && (
+          <div className="space-y-6">
+            {/* KPI Cards Overview */}
+            <KpiCards
+              totalValue={totalValTWD}
+              totalCost={totalCostTWD}
+              todayPL={todayPLTWD}
+              totalProfit={totalProfitTWD}
+              totalROI={totalROI}
+              totalCount={portfolio.length}
+              twCount={twCount}
+              usCount={usCount}
+              isPrivacy={isPrivacy}
+              isRedUp={isRedUp}
+              onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
+            />
 
-        {/* Performance MVP & LVP Banners */}
-        <PerformanceBanners
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onTriggerMVP={(name, profitStr, roi) => {
-            playCoinSound();
-            setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
-          }}
-          onTriggerLVP={(name, profitStr, roi) => {
-            playShieldBreakSound();
-            setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
-          }}
-        />
+            {/* Performance MVP & LVP Banners */}
+            <PerformanceBanners
+              portfolio={portfolio}
+              usdTwdRate={usdTwdRate}
+              isPrivacy={isPrivacy}
+              isRedUp={isRedUp}
+              onTriggerMVP={(name, profitStr, roi) => {
+                playCoinSound();
+                setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
+              }}
+              onTriggerLVP={(name, profitStr, roi) => {
+                playShieldBreakSound();
+                setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
+              }}
+            />
 
-        {/* KPI Cards Overview */}
-        <KpiCards
-          totalValue={totalValTWD}
-          totalCost={totalCostTWD}
-          todayPL={todayPLTWD}
-          totalProfit={totalProfitTWD}
-          totalROI={totalROI}
-          totalCount={portfolio.length}
-          twCount={twCount}
-          usCount={usCount}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
-        />
+            {/* Holdings Stock Table */}
+            <StockTable
+              portfolio={portfolio}
+              usdTwdRate={usdTwdRate}
+              isAdmin={isAdmin}
+              isPrivacy={isPrivacy}
+              isRedUp={isRedUp}
+              onSelectChartTarget={(symbol, market, name) => {
+                setSelectedChartTarget({ symbol, market, name });
+                if (activeMobileTab === 'positions') {
+                  setActiveMobileTab('charts');
+                }
+                const chartCard = document.getElementById('singleStockChartCard');
+                if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              onOpenTxHistory={(stockId) => {
+                const stk = portfolio.find((p) => p.id === stockId);
+                if (stk) {
+                  setTxHistoryStock(stk);
+                  setIsTxHistoryModalOpen(true);
+                }
+              }}
+              onOpenEditModal={(stockId) => {
+                const stk = portfolio.find((p) => p.id === stockId);
+                if (stk) {
+                  setEditStock(stk);
+                  setIsStockModalOpen(true);
+                }
+              }}
+              onDeleteStock={handleDeleteStock}
+              onOpenAddModal={() => {
+                setEditStock(null);
+                setIsStockModalOpen(true);
+              }}
+              onToggleAdmin={handleToggleAdmin}
+              onExportData={() => {
+                const jsonStr = JSON.stringify(portfolio, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `StockMonitor_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('資料已匯出備份');
+              }}
+              onImportData={() => {
+                const input = prompt('請貼上備份 JSON 內容：');
+                if (input) {
+                  try {
+                    const parsed = JSON.parse(input);
+                    const normalized = normalizePortfolio(parsed);
+                    setPortfolio(normalized);
+                    savePortfolioLocal(normalized);
+                    showToast('備份資料成功還原！');
+                  } catch {
+                    showToast('JSON 格式錯誤，請檢查輸入', false);
+                  }
+                }
+              }}
+            />
+          </div>
+        )}
 
-        {/* Financial News Marquee */}
-        <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
-
-        {/* Holdings Stock Table */}
-        <StockTable
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isAdmin={isAdmin}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onSelectChartTarget={(symbol, market, name) => {
-            setSelectedChartTarget({ symbol, market, name });
-            const chartCard = document.getElementById('singleStockChartCard');
-            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
-          onOpenTxHistory={(stockId) => {
-            const stk = portfolio.find((p) => p.id === stockId);
-            if (stk) {
-              setTxHistoryStock(stk);
-              setIsTxHistoryModalOpen(true);
-            }
-          }}
-          onOpenEditModal={(stockId) => {
-            const stk = portfolio.find((p) => p.id === stockId);
-            if (stk) {
-              setEditStock(stk);
-              setIsStockModalOpen(true);
-            }
-          }}
-          onDeleteStock={handleDeleteStock}
-          onOpenAddModal={() => {
-            setEditStock(null);
-            setIsStockModalOpen(true);
-          }}
-          onToggleAdmin={handleToggleAdmin}
-          onPublishToGlobal={() => {
-            if (cloudSyncUrl && isAdmin) {
-              savePortfolioLocal(portfolio, cloudSyncUrl);
-              showToast('已強制發布備份至雲端！');
-            } else {
-              setIsSyncModalOpen(true);
-              if (!isAdmin) {
-                showToast('請先開啟管理員權限 (或直接於對話框設定雲端網址)', false);
+        {/* 2. CHARTS & MARKETS SECTION */}
+        {(activeMobileTab === 'charts' || activeMobileTab === 'all') && (
+          <div className="space-y-6">
+            {/* Intraday Single Stock Chart */}
+            <SingleStockChart
+              portfolio={portfolio}
+              selectedChartTarget={selectedChartTarget}
+              onSelectChartTarget={(symbol, market, name) =>
+                setSelectedChartTarget({ symbol, market, name })
               }
-            }
-          }}
-          onExportData={() => {
-            const jsonStr = JSON.stringify(portfolio, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `StockMonitor_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('資料已匯出備份');
-          }}
-          onImportData={() => {
-            const input = prompt('請貼上備份 JSON 內容：');
-            if (input) {
-              try {
-                const parsed = JSON.parse(input);
-                const normalized = normalizePortfolio(parsed);
-                setPortfolio(normalized);
-                savePortfolioLocal(normalized);
-                showToast('備份資料成功還原！');
-              } catch {
-                showToast('JSON 格式錯誤，請檢查輸入', false);
-              }
-            }
-          }}
-        />
+              isRedUp={isRedUp}
+            />
 
-        {/* Intraday Single Stock Chart */}
-        <SingleStockChart
-          portfolio={portfolio}
-          selectedChartTarget={selectedChartTarget}
-          onSelectChartTarget={(symbol, market, name) =>
-            setSelectedChartTarget({ symbol, market, name })
-          }
-          isRedUp={isRedUp}
-        />
+            {/* Market Indices Section */}
+            <MarketIndices
+              indices={indices}
+              twiiChangePct={twiiChangePct}
+              portfolioTodayPct={portfolioTodayPct}
+              isRedUp={isRedUp}
+              onSelectIndex={(symbol, market, name) => {
+                setSelectedChartTarget({ symbol, market, name });
+                const chartCard = document.getElementById('singleStockChartCard');
+                if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+            />
+          </div>
+        )}
 
-        {/* Dividend Calendar & Passive Income Simulator */}
-        <DividendCalendar
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isPrivacy={isPrivacy}
-        />
+        {/* 3. DIVIDENDS & ANALYTICS SECTION */}
+        {(activeMobileTab === 'analytics' || activeMobileTab === 'all') && (
+          <div className="space-y-6">
+            {/* Financial News Marquee */}
+            <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
+
+            {/* Dividend Calendar & Passive Income Simulator */}
+            <DividendCalendar
+              portfolio={portfolio}
+              usdTwdRate={usdTwdRate}
+              isPrivacy={isPrivacy}
+            />
+
+            {/* Lunar Fortune & Mindset Card */}
+            <LunarFortuneCard />
+          </div>
+        )}
       </div>
 
       {/* Modals */}
