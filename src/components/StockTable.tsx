@@ -54,39 +54,47 @@ export const StockTable: React.FC<StockTableProps> = ({
           <button
             onClick={() => {
               playClickSound();
-              if (!isAdmin) {
-                onToggleAdmin();
-              } else {
-                onOpenAddModal();
-              }
+              onOpenAddModal();
             }}
             className="text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact shadow-[0_0_12px_rgba(16,185,129,0.3)]"
           >
             <Plus className="w-4 h-4" /> 新增部位
           </button>
 
-          {isAdmin && (
-            <>
-              <button
-                onClick={onPublishToGlobal}
-                className="text-xs bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact shadow-[0_0_10px_rgba(56,189,248,0.15)]"
-              >
-                <CloudUpload className="w-4 h-4" /> 強制覆蓋雲端
-              </button>
-              <button
-                onClick={onExportData}
-                className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-              >
-                <Download className="w-4 h-4" /> 備份
-              </button>
-              <button
-                onClick={onImportData}
-                className="text-xs bg-slate-800/50 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-              >
-                <Upload className="w-4 h-4" /> 還原
-              </button>
-            </>
-          )}
+          <button
+            onClick={onExportData}
+            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
+            title="匯出持股備份檔 (JSON)"
+          >
+            <Download className="w-4 h-4 text-sky-400" /> 匯出備份
+          </button>
+
+          <button
+            onClick={onImportData}
+            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
+            title="從 JSON 還原持股資料"
+          >
+            <Upload className="w-4 h-4 text-indigo-400" /> 匯入還原
+          </button>
+
+          <button
+            onClick={() => {
+              playClickSound();
+              if (!isAdmin) {
+                onToggleAdmin();
+              } else {
+                onPublishToGlobal();
+              }
+            }}
+            className={`text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact ${
+              isAdmin
+                ? 'bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 shadow-[0_0_10px_rgba(56,189,248,0.15)]'
+                : 'bg-slate-800/60 text-slate-400 hover:bg-slate-700 border border-white/5'
+            }`}
+            title={isAdmin ? "覆蓋更新至 GAS 雲端" : "【鎖定中】點擊輸入密碼解鎖解開雲端推送功能"}
+          >
+            <CloudUpload className="w-4 h-4" /> 覆蓋雲端
+          </button>
         </div>
       </div>
 
@@ -118,10 +126,13 @@ export const StockTable: React.FC<StockTableProps> = ({
                       目前空空如也，尚未建立任何監控部位
                     </div>
                     <button
-                      onClick={onToggleAdmin}
-                      className="mt-2 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 btn-interact shadow-[0_0_15px_rgba(56,189,248,0.15)]"
+                      onClick={() => {
+                        playClickSound();
+                        onOpenAddModal();
+                      }}
+                      className="mt-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.15)]"
                     >
-                      <Unlock className="w-4 h-4" /> 點此解鎖權限並新增持股
+                      <Plus className="w-4 h-4" /> 新增第一筆持股部位
                     </button>
                   </div>
                 </td>
@@ -253,29 +264,26 @@ export const StockTable: React.FC<StockTableProps> = ({
                         📜 歷程({txCount})
                       </button>
 
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              playClickSound();
-                              onOpenEditModal(item.id);
-                            }}
-                            className="text-xs bg-slate-800/80 hover:bg-sky-900/40 text-sky-400 border border-white/5 px-2.5 py-1.5 rounded-lg transition btn-interact"
-                          >
-                            編輯
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteStock(item.id);
-                            }}
-                            className="text-xs bg-slate-800/80 hover:bg-rose-900/40 text-rose-400 border border-white/5 px-2.5 py-1.5 rounded-lg transition btn-interact"
-                          >
-                            刪除
-                          </button>
-                        </>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playClickSound();
+                          onOpenEditModal(item.id);
+                        }}
+                        className="text-xs bg-slate-800/80 hover:bg-sky-900/40 text-sky-400 border border-white/10 px-2.5 py-1.5 rounded-lg transition btn-interact"
+                      >
+                        編輯
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteStock(item.id);
+                        }}
+                        className="text-xs bg-slate-800/80 hover:bg-rose-900/40 text-rose-400 border border-white/10 px-2.5 py-1.5 rounded-lg transition btn-interact"
+                      >
+                        刪除
+                      </button>
                     </td>
                   </tr>
                 );

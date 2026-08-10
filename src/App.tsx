@@ -816,17 +816,17 @@ export default function App() {
           totalPositionsCount={portfolio.length}
         />
 
-        {/* API Debug Console (Visible in Admin Mode) */}
-        {isAdmin && (
-          <ApiDebugPanel
-            apiHealth={apiHealth}
-            lastSyncTime={lastSyncTime}
-            quoteSuccessCount={quoteSuccessCount}
-            totalCount={portfolio.length}
-            lastCloudWriteTime={lastCloudWriteTime}
-            onRunDiagnostics={() => fetchRealtimePrices(true)}
-          />
-        )}
+        {/* API Connection & Debug Console */}
+        <ApiDebugPanel
+          apiHealth={apiHealth}
+          lastSyncTime={lastSyncTime}
+          quoteSuccessCount={quoteSuccessCount}
+          totalCount={portfolio.length}
+          lastCloudWriteTime={lastCloudWriteTime}
+          onRunDiagnostics={() => fetchRealtimePrices(true)}
+          isAdmin={isAdmin}
+          onToggleAdmin={handleToggleAdmin}
+        />
 
         {/* Market Indices Section */}
         <MarketIndices

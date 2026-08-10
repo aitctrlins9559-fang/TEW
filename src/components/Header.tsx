@@ -281,18 +281,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* Add Position Button */}
+        {/* Add Position Button - Always Unlocked for Local Use */}
         <button
           onClick={() => {
             playClickSound();
-            if (!isAdmin) {
-              onToggleAdmin();
-            } else {
-              onOpenAddModal();
-            }
+            onOpenAddModal();
           }}
           className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.3)] ml-auto"
-          title={isAdmin ? '新增持股部位' : '點擊解鎖管理員以新增持股'}
+          title="新增持股部位"
         >
           <Plus className="w-4 h-4" />
           <span>新增部位</span>

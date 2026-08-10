@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, Search, Loader2, Target, X } from 'lucide-react';
 import { StockPosition, MarketType } from '../../types';
-import { BUILTIN_STOCK_DICTIONARY } from '../../data/stockDictionary';
+import { BUILTIN_STOCK_DICTIONARY, searchLocalDictionary } from '../../data/stockDictionary';
 import { playClickSound } from '../../utils/audio';
 import { apiFetchQuotes, apiSearchStock } from '../../utils/apiClient';
 
@@ -88,38 +88,34 @@ export const StockModal: React.FC<StockModalProps> = ({
     setSearchInput(val);
     if (!val.trim()) {
       setShowResults(false);
+      setSearchResults([]);
       return;
     }
 
-    setIsSearching(true);
     setShowResults(true);
+
+    // Instant local dictionary lookup first
+    const instantLocal = searchLocalDictionary(val, 8);
+    if (instantLocal.length > 0) {
+      setSearchResults(instantLocal);
+    }
+
+    setIsSearching(true);
 
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
     searchTimerRef.current = setTimeout(async () => {
-      const q = val.toLowerCase();
-      const localMatches = BUILTIN_STOCK_DICTIONARY.filter(
-        (item) => item.symbol.toLowerCase().includes(q) || item.name.toLowerCase().includes(q)
-      );
-
-      if (localMatches.length > 0) {
-        setSearchResults(localMatches.slice(0, 8));
-        setIsSearching(false);
-      } else {
-        try {
-          const results = await apiSearchStock(val);
-          if (Array.isArray(results)) {
-            setSearchResults(results.slice(0, 8));
-          } else {
-            setSearchResults([]);
-          }
-        } catch {
-          setSearchResults([]);
-        } finally {
-          setIsSearching(false);
+      try {
+        const results = await apiSearchStock(val);
+        if (Array.isArray(results) && results.length > 0) {
+          setSearchResults(results.slice(0, 8));
         }
+      } catch {
+        // keep local results if any
+      } finally {
+        setIsSearching(false);
       }
-    }, 200);
+    }, 150);
   };
 
   const selectSuggestion = (sSymbol: string, sName: string, sMarket: MarketType) => {

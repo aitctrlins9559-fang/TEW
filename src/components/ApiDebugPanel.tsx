@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Activity } from 'lucide-react';
+import { Terminal, Activity, CheckCircle2, ShieldAlert, Lock, Wifi } from 'lucide-react';
 import { ApiHealthStatus, ApiStatusItem } from '../types';
 import { playClickSound } from '../utils/audio';
 
@@ -10,6 +10,8 @@ interface ApiDebugPanelProps {
   totalCount: number;
   lastCloudWriteTime: string;
   onRunDiagnostics: () => void;
+  isAdmin?: boolean;
+  onToggleAdmin?: () => void;
 }
 
 export const ApiDebugPanel: React.FC<ApiDebugPanelProps> = ({
@@ -19,6 +21,8 @@ export const ApiDebugPanel: React.FC<ApiDebugPanelProps> = ({
   totalCount,
   lastCloudWriteTime,
   onRunDiagnostics,
+  isAdmin = true,
+  onToggleAdmin,
 }) => {
   const items: ApiStatusItem[] = [
     apiHealth.cloud,
@@ -39,6 +43,47 @@ export const ApiDebugPanel: React.FC<ApiDebugPanelProps> = ({
     }
   });
 
+  // When NOT in Admin Mode, show a clean, simple connection status bar
+  if (!isAdmin) {
+    return (
+      <div className="glass-card p-4 rounded-2xl border border-white/10 shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div className="flex items-center gap-2 font-bold text-emerald-400">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <Wifi className="w-4 h-4" /> API 連線狀態：正常運作中
+          </div>
+
+          <div className="text-slate-300 font-mono flex items-center gap-3">
+            <span className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              📊 報價成功率: <strong className="text-emerald-400">{quoteSuccessCount}/{totalCount}</strong> 檔
+            </span>
+            <span className="bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg">
+              ⏱️ 最後同步: <strong className="text-sky-400">{lastSyncTime || '已更新'}</strong>
+            </span>
+          </div>
+        </div>
+
+        {onToggleAdmin && (
+          <button
+            onClick={() => {
+              playClickSound();
+              onToggleAdmin();
+            }}
+            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-white/10 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 btn-interact shrink-0 ml-auto md:ml-0"
+            title="輸入管理員密碼解鎖完整 API 診斷台與雲端網址"
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>解鎖完整診斷 Console</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Full Admin Debug Console
   return (
     <div className="glass-card p-6 rounded-3xl border border-indigo-500/30 space-y-4 shadow-2xl">
       <div className="flex justify-between items-center border-b border-white/5 pb-3">

@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { BUILTIN_STOCK_DICTIONARY, searchLocalDictionary, lookupStockInfo } from '../data/stockDictionary';
 
 export async function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 8000) {
   const controller = new AbortController();
@@ -172,43 +173,73 @@ export async function apiSearchStock(query: string) {
   const q = query.trim();
   if (!q) return [];
 
+  // Local dictionary matches first (contains Chinese stock names)
+  const localMatches = searchLocalDictionary(q, 10);
+
+  let remoteResults: Array<{ symbol: string; name: string; market: 'tse' | 'otc' | 'us' }> = [];
+
   try {
     const res = await fetchWithTimeout(`/api/search?q=${encodeURIComponent(q)}`, {}, 5000);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.results)) {
-        return json.results;
+        remoteResults = json.results;
       }
     }
   } catch {
-    // Fallback
+    // Fallback via CORS proxy if API route unavailable
+    try {
+      const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=zh-Hant-TW&region=TW&quotesCount=10&newsCount=0`;
+      const data = await fetchWithCorsFallback(targetUrl, 5000);
+      const quotes = data?.quotes || [];
+      remoteResults = quotes
+        .filter((item: { quoteType?: string }) => item.quoteType === 'EQUITY' || item.quoteType === 'ETF')
+        .map((item: { symbol: string; shortname?: string; longname?: string }) => {
+          let symbol = item.symbol;
+          let market: 'tse' | 'otc' | 'us' = 'us';
+          if (symbol.endsWith('.TW')) {
+            symbol = symbol.slice(0, -3);
+            market = 'tse';
+          } else if (symbol.endsWith('.TWO')) {
+            symbol = symbol.slice(0, -4);
+            market = 'otc';
+          }
+          return {
+            symbol,
+            name: item.shortname || item.longname || symbol,
+            market,
+          };
+        });
+    } catch {
+      // ignore
+    }
   }
 
-  try {
-    const targetUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&lang=zh-Hant-TW&region=TW&quotesCount=10&newsCount=0`;
-    const data = await fetchWithCorsFallback(targetUrl, 5000);
-    const quotes = data?.quotes || [];
-    return quotes
-      .filter((item: { quoteType?: string }) => item.quoteType === 'EQUITY' || item.quoteType === 'ETF')
-      .map((item: { symbol: string; shortname?: string; longname?: string }) => {
-        let symbol = item.symbol;
-        let market: 'tse' | 'otc' | 'us' = 'us';
-        if (symbol.endsWith('.TW')) {
-          symbol = symbol.slice(0, -3);
-          market = 'tse';
-        } else if (symbol.endsWith('.TWO')) {
-          symbol = symbol.slice(0, -4);
-          market = 'otc';
-        }
-        return {
-          symbol,
-          name: item.shortname || item.longname || symbol,
-          market,
-        };
+  // Combine local and remote results, preferring local Chinese names when symbol matches
+  const merged: Array<{ symbol: string; name: string; market: 'tse' | 'otc' | 'us' }> = [...localMatches];
+
+  remoteResults.forEach((remote) => {
+    // Check if symbol exists in local dictionary for Chinese name lookup
+    const localInfo = lookupStockInfo(remote.symbol);
+    const chineseName = localInfo ? localInfo.name : remote.name;
+
+    const exists = merged.some((m) => m.symbol.toUpperCase() === remote.symbol.toUpperCase());
+    if (!exists) {
+      merged.push({
+        symbol: remote.symbol,
+        name: chineseName,
+        market: localInfo ? localInfo.market : remote.market,
       });
-  } catch {
-    return [];
-  }
+    } else {
+      // Update name to Chinese name if remote gave an English name
+      const existingIdx = merged.findIndex((m) => m.symbol.toUpperCase() === remote.symbol.toUpperCase());
+      if (existingIdx !== -1 && localInfo) {
+        merged[existingIdx].name = localInfo.name;
+      }
+    }
+  });
+
+  return merged.slice(0, 10);
 }
 
 // 5. News

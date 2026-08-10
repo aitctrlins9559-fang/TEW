@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart2, Search, Zap, Activity } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { BarChart2, Search, Zap, Activity, Loader2 } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,7 +15,8 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import { Line } from 'react-chartjs-2';
 import { StockPosition, ChartTarget, MarketType, IntradayData } from '../../types';
 import { playClickSound } from '../../utils/audio';
-import { apiFetchChartData } from '../../utils/apiClient';
+import { apiFetchChartData, apiSearchStock } from '../../utils/apiClient';
+import { searchLocalDictionary, lookupStockInfo } from '../../data/stockDictionary';
 
 ChartJS.register(
   CategoryScale,
@@ -142,17 +143,73 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
     }
   }, [selectedChartTarget, fetchIntradayData]);
 
+  const [searchResults, setSearchResults] = useState<Array<{ symbol: string; name: string; market: MarketType }>>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchInputChange = (val: string) => {
+    setSearchInput(val);
+    if (!val.trim()) {
+      setShowResults(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setShowResults(true);
+
+    // Instant local matches
+    const instantLocal = searchLocalDictionary(val, 8);
+    if (instantLocal.length > 0) {
+      setSearchResults(instantLocal);
+    }
+
+    setIsSearching(true);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await apiSearchStock(val);
+        if (Array.isArray(results) && results.length > 0) {
+          setSearchResults(results.slice(0, 8));
+        }
+      } catch {
+        // keep local results
+      } finally {
+        setIsSearching(false);
+      }
+    }, 150);
+  };
+
+  const selectSearchItem = (symbol: string, market: MarketType, name: string) => {
+    playClickSound();
+    setSearchInput(`${symbol} | ${name}`);
+    setShowResults(false);
+    onSelectChartTarget(symbol, market, name);
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (searchResults.length > 0 && showResults) {
+      const first = searchResults[0];
+      selectSearchItem(first.symbol, first.market, first.name);
+      return;
+    }
+
     const query = searchInput.trim().toUpperCase();
     if (!query) return;
 
     const matchedInPortfolio = portfolio.find((p) => p.symbol === query);
     if (matchedInPortfolio) {
-      onSelectChartTarget(query, matchedInPortfolio.market, matchedInPortfolio.name);
+      selectSearchItem(query, matchedInPortfolio.market, matchedInPortfolio.name);
     } else {
-      const isNum = /^\d{4,6}$/.test(query);
-      onSelectChartTarget(query, isNum ? 'tse' : 'us', query);
+      const info = lookupStockInfo(query);
+      if (info) {
+        selectSearchItem(info.symbol, info.market, info.name);
+      } else {
+        const isNum = /^\d{4,6}$/.test(query);
+        selectSearchItem(query, isNum ? 'tse' : 'us', query);
+      }
     }
   };
 
@@ -314,19 +371,56 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
             ))}
           </select>
 
-          {/* Search Input */}
-          <form onSubmit={handleSearchSubmit} className="relative flex items-center">
-            <input
-              type="text"
-              placeholder="搜尋代號 (2330 / NVDA)"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="glass-input rounded-xl px-3 py-1.5 text-xs text-white outline-none w-40 font-mono uppercase pr-7"
-            />
-            <button type="submit" className="absolute right-2 text-slate-400 hover:text-sky-400 p-0.5">
-              <Search className="w-3.5 h-3.5" />
-            </button>
-          </form>
+          {/* Search Input with Smart Autocomplete Dropdown */}
+          <div className="relative">
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+              <input
+                type="text"
+                placeholder="智慧搜尋 (2330 / 鴻海 / NVDA)"
+                value={searchInput}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
+                onFocus={() => {
+                  if (searchInput.trim()) setShowResults(true);
+                }}
+                className="glass-input rounded-xl px-3 py-1.5 text-xs text-white outline-none w-52 sm:w-60 font-medium pr-7 focus:border-sky-400"
+              />
+              <button type="submit" className="absolute right-2 text-slate-400 hover:text-sky-400 p-0.5">
+                {isSearching ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                ) : (
+                  <Search className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </form>
+
+            {/* Auto-complete Dropdown */}
+            {showResults && (
+              <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-white/5 backdrop-blur-xl">
+                {searchResults.length === 0 ? (
+                  <div className="p-3 text-xs text-slate-400 text-center">
+                    無相符股票標的，可按 Enter 直接查詢
+                  </div>
+                ) : (
+                  searchResults.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectSearchItem(item.symbol, item.market, item.name)}
+                      className="w-full text-left p-2.5 hover:bg-sky-500/10 cursor-pointer flex justify-between items-center text-xs transition"
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="font-bold text-white truncate">{item.name}</span>
+                        <span className="text-sky-400 font-mono font-bold shrink-0">{item.symbol}</span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase bg-sky-500/10 text-sky-300 border border-sky-500/20 shrink-0">
+                        {item.market === 'us' ? '美股' : item.market === 'otc' ? '上櫃' : '上市'}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -78,7 +78,7 @@ export const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = (
                 <th className="py-3 px-4">單價 (均價)</th>
                 <th className="py-3 px-4">匯率</th>
                 <th className="py-3 px-4">小計 (NT$)</th>
-                {isAdmin && <th className="py-3 px-4 text-center">操作</th>}
+                <th className="py-3 px-4 text-center">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-mono">
@@ -95,16 +95,14 @@ export const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = (
                     <td className="py-3 px-4 font-bold text-white">
                       ${Math.round(subtotal).toLocaleString()}
                     </td>
-                    {isAdmin && (
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => onDeleteTransaction(stock.id, tx.id)}
-                          className="text-rose-400 hover:text-rose-300 font-sans"
-                        >
-                          刪除
-                        </button>
-                      </td>
-                    )}
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => onDeleteTransaction(stock.id, tx.id)}
+                        className="text-rose-400 hover:text-rose-300 font-sans text-xs bg-rose-500/10 border border-rose-500/20 px-2 py-1 rounded hover:bg-rose-500/20 transition"
+                      >
+                        刪除
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -113,8 +111,7 @@ export const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = (
         </div>
 
         {/* Add DCA Transaction Form */}
-        {isAdmin && (
-          <div className="bg-slate-900/60 p-4 rounded-2xl border border-sky-500/20 space-y-3">
+        <div className="bg-slate-900/60 p-4 rounded-2xl border border-sky-500/20 space-y-3">
             <div className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
               <PlusCircle className="w-4 h-4" /> 快速新增定期定額 / 買入記錄
             </div>
@@ -165,7 +162,6 @@ export const TransactionHistoryModal: React.FC<TransactionHistoryModalProps> = (
               </div>
             </form>
           </div>
-        )}
       </div>
     </div>
   );
