@@ -113,12 +113,45 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
               <AlertTriangle className="w-5 h-5" /> 分析產生失敗
             </div>
             <p className="text-xs leading-relaxed">{error}</p>
-            <button
-              onClick={onReanalyze}
-              className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold rounded-xl text-xs transition"
-            >
-              重新重試
-            </button>
+
+            {/* If missing key on static site, provide input */}
+            {(error.includes('NEED_API_KEY') || error.includes('GEMINI_API_KEY') || error.includes('404')) && (
+              <div className="pt-2 border-t border-rose-500/20 space-y-2">
+                <label className="text-xs font-bold text-slate-300 block">
+                  輸入 Gemini API Key (僅儲存於您的瀏覽器):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="AIzaSy..."
+                    defaultValue={localStorage.getItem('gemini_api_key') || ''}
+                    id="geminiApiKeyInput"
+                    className="flex-1 bg-black/60 border border-white/20 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-purple-400"
+                  />
+                  <button
+                    onClick={() => {
+                      const input = (document.getElementById('geminiApiKeyInput') as HTMLInputElement)?.value;
+                      if (input) {
+                        localStorage.setItem('gemini_api_key', input.trim());
+                        onReanalyze();
+                      }
+                    }}
+                    className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition"
+                  >
+                    儲存並重試
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-1">
+              <button
+                onClick={onReanalyze}
+                className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold rounded-xl text-xs transition"
+              >
+                重新重試
+              </button>
+            </div>
           </div>
         )}
 

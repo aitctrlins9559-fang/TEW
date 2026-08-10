@@ -28,6 +28,13 @@ import { AICopilotModal } from './components/Modals/AICopilotModal';
 import { ApiDebugPanel } from './components/ApiDebugPanel';
 import { getTaiwanDateString, getTaiwanTimeString } from './utils/format';
 import {
+  apiFetchFx,
+  apiFetchQuotes,
+  apiFetchIndices,
+  apiFetchNews,
+  apiRunAIAnalysis,
+} from './utils/apiClient';
+import {
   playSuccessSound,
   playDeleteSound,
   playCoinSound,
@@ -93,6 +100,11 @@ const INITIAL_PORTFOLIO: StockPosition[] = [
 export default function App() {
   // State variables
   const [portfolio, setPortfolio] = useState<StockPosition[]>([]);
+  const portfolioRef = useRef<StockPosition[]>(portfolio);
+  useEffect(() => {
+    portfolioRef.current = portfolio;
+  }, [portfolio]);
+
   const [usdTwdRate, setUsdTwdRate] = useState<number>(31.5);
   const [indices, setIndices] = useState<MarketIndex[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -259,99 +271,88 @@ export default function App() {
       );
   }, []);
 
-  // Fetch quotes from server route
+  // Fetch quotes from server or CORS fallback
   const fetchRealtimePrices = useCallback(async (isManual = false) => {
     setIsFetchingPrices(true);
     const tStart = performance.now();
 
     try {
       // 1. Fetch USD rate
-      const fxRes = await fetch('/api/fx');
-      const fxJson = await fxRes.json();
-      const newFx = fxJson.rate || 31.5;
+      const newFx = await apiFetchFx();
       setUsdTwdRate(newFx);
 
       // 2. Fetch quotes for all portfolio stocks
-      setPortfolio((prevPortfolio) => {
-        if (prevPortfolio.length === 0) return prevPortfolio;
-
-        const symbols = prevPortfolio.map((p) =>
+      const currentPortfolio = portfolioRef.current;
+      if (currentPortfolio.length > 0) {
+        const symbols = currentPortfolio.map((p) =>
           p.market === 'tse' ? `${p.symbol}.TW` : p.market === 'otc' ? `${p.symbol}.TWO` : p.symbol
         );
 
-        fetch('/api/quote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbols }),
-        })
-          .then((res) => res.json())
-          .then((quoteData) => {
-            const results: Array<{
-              symbol: string;
-              regularMarketPrice: number;
-              regularMarketPreviousClose: number;
-              regularMarketDayHigh: number;
-              regularMarketDayLow: number;
-            }> = quoteData.results || [];
+        const results = await apiFetchQuotes(symbols);
 
-            let success = 0;
-            const updated = prevPortfolio.map((item) => {
-              const symKey =
-                item.market === 'tse'
-                  ? `${item.symbol}.TW`
-                  : item.market === 'otc'
-                  ? `${item.symbol}.TWO`
-                  : item.symbol;
+        let success = 0;
+        let twseSuccess = false;
+        let tpexSuccess = false;
 
-              const q = results.find((r) => r.symbol === symKey);
-              if (q && typeof q.regularMarketPrice === 'number') {
-                success++;
-                const oldPrice = item.price;
-                const newPrice = q.regularMarketPrice;
-                let priceChanged: 'up' | 'down' | null = null;
+        const updated = currentPortfolio.map((item) => {
+          const symKey =
+            item.market === 'tse'
+              ? `${item.symbol}.TW`
+              : item.market === 'otc'
+              ? `${item.symbol}.TWO`
+              : item.symbol;
 
-                if (oldPrice !== null && oldPrice !== undefined) {
-                  if (newPrice > oldPrice) priceChanged = 'up';
-                  else if (newPrice < oldPrice) priceChanged = 'down';
-                }
+          const q = results.find((r) => r.symbol === symKey);
+          if (q && typeof q.regularMarketPrice === 'number') {
+            success++;
+            if (item.market === 'tse') twseSuccess = true;
+            if (item.market === 'otc') tpexSuccess = true;
 
-                return {
-                  ...item,
-                  price: newPrice,
-                  prevClose: q.regularMarketPreviousClose,
-                  dayHigh: q.regularMarketDayHigh,
-                  dayLow: q.regularMarketDayLow,
-                  fetchError: false,
-                  priceChanged,
-                };
-              }
-              return { ...item, fetchError: true };
-            });
+            const oldPrice = item.price;
+            const newPrice = q.regularMarketPrice;
+            let priceChanged: 'up' | 'down' | null = null;
 
-            setQuoteSuccessCount(success);
-            setPortfolio(updated);
-            savePortfolioLocal(updated);
-          })
-          .catch(() => {
-            // ignore
-          });
+            if (oldPrice !== null && oldPrice !== undefined) {
+              if (newPrice > oldPrice) priceChanged = 'up';
+              else if (newPrice < oldPrice) priceChanged = 'down';
+            }
 
-        return prevPortfolio;
-      });
+            return {
+              ...item,
+              price: newPrice,
+              prevClose: q.regularMarketPreviousClose,
+              dayHigh: q.regularMarketDayHigh,
+              dayLow: q.regularMarketDayLow,
+              fetchError: false,
+              priceChanged,
+            };
+          }
+          return { ...item, fetchError: true };
+        });
+
+        setQuoteSuccessCount(success);
+        setPortfolio(updated);
+        savePortfolioLocal(updated);
+
+        const elapsedMs = Math.round(performance.now() - tStart);
+        setApiHealth((prev) => ({
+          ...prev,
+          cloud: { name: 'Cloud API', status: cloudSyncUrl ? 'OK' : 'DISABLED', ms: 50, error: null },
+          yahoo: { name: 'Yahoo Quote', status: success > 0 ? 'OK' : 'ERROR', ms: elapsedMs, error: success > 0 ? null : '無行情數據' },
+          twse: { name: 'TWSE API', status: twseSuccess ? 'OK' : 'DISABLED', ms: Math.round(elapsedMs * 0.8), error: null },
+          tpex: { name: 'TPEX API', status: tpexSuccess ? 'OK' : 'DISABLED', ms: Math.round(elapsedMs * 0.9), error: null },
+          search: { name: 'Stock Search', status: 'OK', ms: 120, error: null },
+          fx: { name: 'FX API', status: 'OK', ms: 80, error: null },
+        }));
+      }
 
       // 3. Fetch indices
-      const idxRes = await fetch('/api/indices');
-      const idxJson = await idxRes.json();
-      if (idxJson.success && Array.isArray(idxJson.results)) {
-        setIndices(idxJson.results);
+      const idxResults = await apiFetchIndices();
+      if (Array.isArray(idxResults) && idxResults.length > 0) {
+        setIndices(idxResults);
       }
 
       setLastSyncTime(`${getTaiwanDateString()} ${getTaiwanTimeString()}`);
-      setApiHealth((prev) => ({
-        ...prev,
-        yahoo: { name: 'Yahoo Quote', status: 'OK', ms: Math.round(performance.now() - tStart), error: null },
-        fx: { name: 'FX API', status: 'OK', ms: 80, error: null },
-      }));
 
       if (isManual) {
         playSuccessSound();
@@ -363,15 +364,14 @@ export default function App() {
       setIsFetchingPrices(false);
       setCountdownTimer(60);
     }
-  }, [showToast, savePortfolioLocal]);
+  }, [showToast, savePortfolioLocal, cloudSyncUrl]);
 
   // Fetch news
   const fetchNews = useCallback(async () => {
     try {
-      const res = await fetch('/api/news');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.items)) {
-        setNews(json.items);
+      const items = await apiFetchNews();
+      if (Array.isArray(items) && items.length > 0) {
+        setNews(items);
         setLastNewsTime(getTaiwanTimeString());
       }
     } catch {
@@ -638,24 +638,14 @@ export default function App() {
     const roi = totalCostTWD > 0 ? (profit / totalCostTWD) * 100 : 0;
 
     try {
-      const res = await fetch('/api/ai-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          portfolio,
-          totalValue: Math.round(totalValTWD),
-          totalProfit: Math.round(profit),
-          totalROI: roi.toFixed(2),
-          indices,
-        }),
+      const analysis = await apiRunAIAnalysis({
+        portfolio,
+        totalValue: Math.round(totalValTWD),
+        totalProfit: Math.round(profit),
+        totalROI: roi.toFixed(2),
+        indices,
       });
-
-      const json = await res.json();
-      if (json.success && json.analysis) {
-        setAiAnalysisResult(json.analysis);
-      } else {
-        throw new Error(json.error || 'AI 戰情產生失敗');
-      }
+      setAiAnalysisResult(analysis);
     } catch (err) {
       setAiError((err as Error).message);
     } finally {

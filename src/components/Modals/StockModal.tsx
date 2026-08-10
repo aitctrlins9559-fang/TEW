@@ -3,6 +3,7 @@ import { PlusCircle, Search, Loader2, Target, X } from 'lucide-react';
 import { StockPosition, MarketType } from '../../types';
 import { BUILTIN_STOCK_DICTIONARY } from '../../data/stockDictionary';
 import { playClickSound } from '../../utils/audio';
+import { apiFetchQuotes, apiSearchStock } from '../../utils/apiClient';
 
 interface StockModalProps {
   isOpen: boolean;
@@ -71,13 +72,8 @@ export const StockModal: React.FC<StockModalProps> = ({
     setLivePrice('查詢中...');
     try {
       const s = mkt === 'tse' ? `${sym}.TW` : mkt === 'otc' ? `${sym}.TWO` : sym;
-      const res = await fetch(`/api/quote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbols: [s] }),
-      });
-      const data = await res.json();
-      const q = data?.results?.[0];
+      const quotes = await apiFetchQuotes([s]);
+      const q = quotes?.[0];
       if (q && typeof q.regularMarketPrice === 'number') {
         setLivePrice(`$${q.regularMarketPrice} ${mkt === 'us' ? 'USD' : 'NT$'}`);
       } else {
@@ -111,10 +107,9 @@ export const StockModal: React.FC<StockModalProps> = ({
         setIsSearching(false);
       } else {
         try {
-          const res = await fetch(`/api/search?q=${encodeURIComponent(val)}`);
-          const data = await res.json();
-          if (data.success && Array.isArray(data.results)) {
-            setSearchResults(data.results.slice(0, 8));
+          const results = await apiSearchStock(val);
+          if (Array.isArray(results)) {
+            setSearchResults(results.slice(0, 8));
           } else {
             setSearchResults([]);
           }

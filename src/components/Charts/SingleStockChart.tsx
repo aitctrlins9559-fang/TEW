@@ -15,6 +15,7 @@ import annotationPlugin from 'chartjs-plugin-annotation';
 import { Line } from 'react-chartjs-2';
 import { StockPosition, ChartTarget, MarketType, IntradayData } from '../../types';
 import { playClickSound } from '../../utils/audio';
+import { apiFetchChartData } from '../../utils/apiClient';
 
 ChartJS.register(
   CategoryScale,
@@ -65,10 +66,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
             ? `${target.symbol}.TWO`
             : target.symbol;
 
-        const res = await fetch(`/api/chart?symbol=${encodeURIComponent(s)}&interval=5m&range=1d`);
-        const json = await res.json();
+        const json = await apiFetchChartData(s, '1d', '5m');
 
-        if (!json.success || !json.meta) {
+        if (!json || !json.success || !json.meta) {
           throw new Error('暫無即時分時行情數據');
         }
 
