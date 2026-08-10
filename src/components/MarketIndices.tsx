@@ -55,44 +55,44 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
           playClickSound();
           onSelectIndex?.(symbol, marketType, name);
         }}
-        className="glass-card hover-card p-4 rounded-2xl group cursor-pointer hover:border-sky-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all space-y-2 relative overflow-hidden"
+        className="glass-card hover-card p-2 sm:p-4 rounded-xl sm:rounded-2xl group cursor-pointer hover:border-sky-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all space-y-1 sm:space-y-2 relative overflow-hidden"
         title="點擊切換查看該指數即時走勢圖 📈"
       >
         {/* Top bar: name and market code */}
-        <div className="flex justify-between items-center text-[11px] text-slate-400 font-semibold tracking-wider">
-          <span className="flex items-center gap-1 group-hover:text-sky-300 transition">
-            <Activity className="w-3.5 h-3.5 text-sky-400" />
-            {name}
+        <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-slate-400 font-semibold tracking-tight">
+          <span className="flex items-center gap-1 group-hover:text-sky-300 transition truncate">
+            <Activity className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-400 shrink-0" />
+            <span className="truncate">{name.replace('指數', '')}</span>
           </span>
-          <span className="font-mono text-slate-500 text-[10px] flex items-center gap-1">
+          <span className="font-mono text-slate-500 text-[9px] sm:text-[10px] hidden sm:flex items-center gap-1">
             <LineChart className="w-3 h-3 text-sky-400/60 opacity-0 group-hover:opacity-100 transition" />
             {symbol}
           </span>
         </div>
 
         {/* Index price & change */}
-        <div className="flex items-baseline justify-between gap-2">
-          <div className="text-xl font-black text-white font-mono tracking-tight group-hover:text-sky-400 transition tabular-nums">
+        <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-0.5 sm:gap-2">
+          <div className="text-sm sm:text-xl font-black text-white font-mono tracking-tight group-hover:text-sky-400 transition tabular-nums">
             {price
               ? price.toLocaleString('zh-TW', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
                 })
               : '--'}
           </div>
-          <div className={`text-xs font-mono font-bold tabular-nums flex items-center gap-0.5 ${colorClass}`}>
+          <div className={`text-[10px] sm:text-xs font-mono font-bold tabular-nums flex items-center gap-0.5 ${colorClass}`}>
             {change !== null && change !== undefined ? (
               <>
-                {isUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                {isUp ? <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <TrendingDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                 {isUp ? '+' : ''}
-                {change.toFixed(2)}
+                {changePct !== null && changePct !== undefined ? `${changePct.toFixed(1)}%` : change.toFixed(1)}
               </>
             ) : null}
           </div>
         </div>
 
         {/* Additional Stats: Prev Close & Pct */}
-        <div className="flex justify-between items-center text-[10px] font-mono border-t border-white/5 pt-2 text-slate-400">
+        <div className="hidden sm:flex justify-between items-center text-[10px] font-mono border-t border-white/5 pt-2 text-slate-400">
           <span>
             昨收:{' '}
             <strong className="text-slate-300">
@@ -138,22 +138,22 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-          {renderCard(twii, '台股加權指數', '^TWII', 'tse')}
-          {renderCard(n225, '日經 225 指數', '^N225', 'tse')}
-          {renderCard(ks11, '韓國 KOSPI', '^KS11', 'tse')}
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+          {renderCard(twii, '台股加權', '^TWII', 'tse')}
+          {renderCard(n225, '日經225', '^N225', 'tse')}
+          {renderCard(ks11, '韓國KOSPI', '^KS11', 'tse')}
         </div>
       </div>
 
       {/* US Markets */}
-      <div className="space-y-2 pt-1">
-        <div className="text-xs font-bold text-slate-300 uppercase tracking-widest px-1 flex items-center gap-1.5">
-          <Sunset className="w-4 h-4 text-indigo-400" /> 美股三大核心指數
+      <div className="space-y-1.5 sm:space-y-2 pt-0.5 sm:pt-1">
+        <div className="text-[11px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest px-1 flex items-center gap-1.5">
+          <Sunset className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" /> 美股三大核心指數
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-          {renderCard(dji, '道瓊工業指數', '^DJI', 'us')}
-          {renderCard(gspc, '標普 500 指數', '^GSPC', 'us')}
-          {renderCard(ixic, '那斯達克指數', '^IXIC', 'us')}
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+          {renderCard(dji, '道瓊工業', '^DJI', 'us')}
+          {renderCard(gspc, '標普500', '^GSPC', 'us')}
+          {renderCard(ixic, '那斯達克', '^IXIC', 'us')}
         </div>
       </div>
     </div>

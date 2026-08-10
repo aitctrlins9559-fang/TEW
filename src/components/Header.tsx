@@ -73,8 +73,8 @@ export const Header: React.FC<HeaderProps> = ({
   const isCloudBound = Boolean(cloudSyncUrl && cloudSyncUrl.includes('script.google.com'));
 
   return (
-    <header className="glass-card flex flex-col gap-4 p-4 sm:p-6 lg:p-7 rounded-[2rem] border border-white/10 shadow-2xl">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-4">
+    <header className="glass-card flex flex-col gap-3 p-3.5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-2xl">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-white/5 pb-3 sm:pb-4">
         <div className="w-full lg:w-auto">
           <div className="flex items-center justify-between lg:justify-start gap-3">
             <h1
@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="cursor-pointer text-xl sm:text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-indigo-400 to-emerald-400 flex items-center gap-2 tracking-tight hover:opacity-80 transition"
               title="點擊切換管理員權限"
             >
-              <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-sky-400 animate-pulse" /> 持股監控
+              <Activity className="w-5 h-5 sm:w-7 sm:h-7 text-sky-400 animate-pulse" /> 持股監控
             </h1>
             <button
               onClick={onToggleAdmin}
@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mt-3">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-2 sm:mt-3">
             <button
               onClick={() => {
                 playClickSound();
