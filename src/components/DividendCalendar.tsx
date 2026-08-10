@@ -26,35 +26,35 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   const maxMonthlyVal = Math.max(...summary.monthlyBreakdown, 1000);
 
   return (
-    <div className="glass-card p-6 md:p-8 rounded-[2rem] border border-emerald-500/30 shadow-2xl space-y-6 relative overflow-hidden backdrop-blur-xl">
+    <div className="glass-card p-4 sm:p-6 md:p-8 rounded-[2rem] border border-emerald-500/30 shadow-2xl space-y-6 relative overflow-hidden backdrop-blur-xl">
       {/* Glow Effect */}
       <div className="absolute -top-24 -right-24 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/10 pb-5">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
-            <Calendar className="w-6 h-6" />
+          <div className="p-2.5 sm:p-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 shrink-0">
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-white flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-black text-white flex flex-wrap items-center gap-2">
               除權息日曆與被動收入試算
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/30">
+              <span className="text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold border border-emerald-500/30">
                 Passive Income
               </span>
             </h2>
-            <p className="text-xs text-slate-400">整合台美股歷史發放股利，預估組合現金流與除息提醒</p>
+            <p className="text-[11px] sm:text-xs text-slate-400">整合台美股歷史發放股利，預估組合現金流與除息提醒</p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs font-bold">
+        <div className="flex w-full sm:w-auto overflow-x-auto no-scrollbar bg-slate-900/80 p-1 rounded-xl border border-white/10 text-xs font-bold shrink-0">
           <button
             onClick={() => {
               playClickSound();
               setActiveTab('overview');
             }}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               activeTab === 'overview'
                 ? 'bg-emerald-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
@@ -67,20 +67,20 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
               playClickSound();
               setActiveTab('calendar');
             }}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               activeTab === 'calendar'
                 ? 'bg-emerald-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            除息日曆提醒 ({summary.upcomingReminders.length})
+            除息提醒 ({summary.upcomingReminders.length})
           </button>
           <button
             onClick={() => {
               playClickSound();
               setActiveTab('goal');
             }}
-            className={`px-3 py-1.5 rounded-lg transition ${
+            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
               activeTab === 'goal'
                 ? 'bg-emerald-500 text-slate-950 shadow'
                 : 'text-slate-400 hover:text-white'

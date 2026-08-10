@@ -774,14 +774,14 @@ export default function App() {
   const portfolioTodayPct = totalCostTWD > 0 ? (todayPLTWD / totalCostTWD) * 100 : null;
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 antialiased selection:bg-sky-500 selection:text-white">
+    <div className="min-h-screen p-3 sm:p-6 lg:p-8 antialiased selection:bg-sky-500 selection:text-white">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 bg-slate-800/95 text-white font-medium px-5 py-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] z-[999] flex items-center gap-3 border border-slate-600/50 backdrop-blur-xl animate-bounce">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 bg-slate-800/95 text-white font-medium px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] z-[999] flex items-center justify-between sm:justify-start gap-3 border border-slate-600/50 backdrop-blur-xl animate-bounce">
           <span className={toastMessage.isSuccess ? 'text-sky-400 font-bold' : 'text-rose-400 font-bold'}>
             {toastMessage.isSuccess ? '✓' : '✕'}
           </span>
-          <span className="text-sm tracking-wide">{toastMessage.text}</span>
+          <span className="text-xs sm:text-sm tracking-wide truncate">{toastMessage.text}</span>
         </div>
       )}
 

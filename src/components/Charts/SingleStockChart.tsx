@@ -344,7 +344,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
           </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">
           {/* Portfolio Select */}
           <select
             value={
@@ -361,7 +361,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
                 onSelectChartTarget(item.symbol, item.market, item.name);
               }
             }}
-            className="bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-sky-400 font-bold outline-none cursor-pointer hover:border-sky-500/50 transition"
+            className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-sky-400 font-bold outline-none cursor-pointer hover:border-sky-500/50 transition w-full sm:w-auto"
           >
             <option value="">從持股快速選擇...</option>
             {portfolio.map((item) => (
@@ -372,8 +372,8 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
           </select>
 
           {/* Search Input with Smart Autocomplete Dropdown */}
-          <div className="relative">
-            <form onSubmit={handleSearchSubmit} className="relative flex items-center">
+          <div className="relative w-full sm:w-auto">
+            <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full">
               <input
                 type="text"
                 placeholder="智慧搜尋 (2330 / 鴻海 / NVDA)"
@@ -382,7 +382,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
                 onFocus={() => {
                   if (searchInput.trim()) setShowResults(true);
                 }}
-                className="glass-input rounded-xl px-3 py-1.5 text-xs text-white outline-none w-52 sm:w-60 font-medium pr-7 focus:border-sky-400"
+                className="glass-input rounded-xl px-3 py-2 text-xs text-white outline-none w-full sm:w-60 font-medium pr-7 focus:border-sky-400"
               />
               <button type="submit" className="absolute right-2 text-slate-400 hover:text-sky-400 p-0.5">
                 {isSearching ? (
@@ -395,7 +395,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
 
             {/* Auto-complete Dropdown */}
             {showResults && (
-              <div className="absolute right-0 top-full mt-2 w-72 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-white/5 backdrop-blur-xl">
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 w-full sm:w-72 bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl max-h-60 overflow-y-auto z-50 divide-y divide-white/5 backdrop-blur-xl">
                 {searchResults.length === 0 ? (
                   <div className="p-3 text-xs text-slate-400 text-center">
                     無相符股票標的，可按 Enter 直接查詢

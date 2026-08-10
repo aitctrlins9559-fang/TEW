@@ -346,6 +346,36 @@ export const StockModal: React.FC<StockModalProps> = ({
             </div>
           )}
 
+          {/* Transaction Cost Estimations (手續費與證交稅預估) */}
+          {market !== 'us' && Number(shares) > 0 && Number(cost) > 0 && (
+            <div className="bg-slate-900/50 p-4 rounded-2xl border border-emerald-500/20 space-y-2 text-xs">
+              <div className="text-emerald-400 font-semibold flex justify-between items-center">
+                <span>預估交易成本 (券商 28 折 + 證交稅)</span>
+                <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-emerald-300 font-mono">
+                  NT$ {Math.round(
+                    Math.max(20, Number(shares) * Number(cost) * 0.001425 * 0.28) +
+                    Math.max(20, Number(shares) * Number(cost) * 0.001425 * 0.28) +
+                    Number(shares) * Number(cost) * (symbol.startsWith('00') ? 0.001 : 0.003)
+                  ).toLocaleString()}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-slate-300 bg-slate-950/50 p-2.5 rounded-lg border border-white/5">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-sans">買入手續費</span>
+                  ${Math.round(Math.max(20, Number(shares) * Number(cost) * 0.001425 * 0.28))} NT$
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-sans">預估賣出手續費</span>
+                  ${Math.round(Math.max(20, Number(shares) * Number(cost) * 0.001425 * 0.28))} NT$
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-sans">預估證交稅 ({symbol.startsWith('00') ? '0.1%' : '0.3%'})</span>
+                  ${Math.round(Number(shares) * Number(cost) * (symbol.startsWith('00') ? 0.001 : 0.003))} NT$
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Risk Control Estimations */}
           <div className="bg-slate-900/50 p-4 rounded-2xl border border-white/5 space-y-2 text-xs">
             <div className="text-sky-400 font-semibold flex items-center gap-1.5">

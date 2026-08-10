@@ -81,7 +81,11 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
               {prevClose ? prevClose.toLocaleString('zh-TW', { maximumFractionDigits: 1 }) : '--'}
             </strong>
           </span>
-          <span className={`font-bold px-1.5 py-0.5 rounded ${isUp ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+          <span className={`font-bold px-1.5 py-0.5 rounded ${
+            isUp
+              ? isRedUp ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'
+              : isRedUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+          }`}>
             {changePct !== null && changePct !== undefined
               ? `${isUp ? '+' : ''}${changePct.toFixed(2)}%`
               : '--'}
@@ -116,7 +120,7 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
             </span>
           )}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {renderCard(twii, '台股加權指數', '^TWII')}
           {renderCard(n225, '日經 225 指數', '^N225')}
           {renderCard(ks11, '韓國 KOSPI', '^KS11')}
@@ -128,7 +132,7 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
         <div className="text-xs font-bold text-slate-300 uppercase tracking-widest px-1 flex items-center gap-1.5">
           <Sunset className="w-4 h-4 text-indigo-400" /> 美股三大核心指數
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
           {renderCard(dji, '道瓊工業指數', '^DJI')}
           {renderCard(gspc, '標普 500 指數', '^GSPC')}
           {renderCard(ixic, '那斯達克指數', '^IXIC')}

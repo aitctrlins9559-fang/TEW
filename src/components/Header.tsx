@@ -73,26 +73,26 @@ export const Header: React.FC<HeaderProps> = ({
   const isCloudBound = Boolean(cloudSyncUrl && cloudSyncUrl.includes('script.google.com'));
 
   return (
-    <header className="glass-card flex flex-col gap-5 p-5 lg:p-7 rounded-[2rem] border border-white/10 shadow-2xl">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-5">
-        <div>
-          <div className="flex items-center gap-3">
+    <header className="glass-card flex flex-col gap-4 p-4 sm:p-6 lg:p-7 rounded-[2rem] border border-white/10 shadow-2xl">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-4">
+        <div className="w-full lg:w-auto">
+          <div className="flex items-center justify-between lg:justify-start gap-3">
             <h1
               onClick={onToggleAdmin}
-              className="cursor-pointer text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-indigo-400 to-emerald-400 flex items-center gap-2.5 tracking-tight hover:opacity-80 transition"
+              className="cursor-pointer text-xl sm:text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-indigo-400 to-emerald-400 flex items-center gap-2 tracking-tight hover:opacity-80 transition"
               title="點擊切換管理員權限"
             >
-              <Activity className="w-7 h-7 text-sky-400 animate-pulse" /> 持股監控
+              <Activity className="w-6 h-6 sm:w-7 sm:h-7 text-sky-400 animate-pulse" /> 持股監控
             </h1>
             <button
               onClick={onToggleAdmin}
-              className={`p-1.5 rounded-lg border text-xs font-mono transition flex items-center gap-1 ${
+              className={`px-2 py-1 rounded-lg border text-[11px] font-mono transition flex items-center gap-1 shrink-0 ${
                 isAdmin
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                   : 'bg-slate-800 text-slate-400 border-slate-700'
               }`}
             >
-              {isAdmin ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              {isAdmin ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
               <span>{isAdmin ? '已解鎖' : '已鎖定'}</span>
             </button>
           </div>
@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenChangelog?.();
               }}
               className="text-[10px] font-mono px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 font-bold tracking-wider transition flex items-center gap-1.5 btn-interact shadow-[0_0_10px_rgba(56,189,248,0.15)]"
-              title="點擊查看 V6.2-PRO 版本更新日誌與新功能說明"
+              title="點擊查看 V6.3-PRO 版本更新日誌與新功能說明"
             >
               <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
-              <span>V6.2-PRO 更新說明</span>
+              <span>V6.3-PRO 更新說明</span>
             </button>
 
             {/* TW Market Badge */}
