@@ -104,10 +104,10 @@ export const Header: React.FC<HeaderProps> = ({
                 onOpenChangelog?.();
               }}
               className="text-[10px] font-mono px-2.5 py-1 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 font-bold tracking-wider transition flex items-center gap-1.5 btn-interact shadow-[0_0_10px_rgba(56,189,248,0.15)]"
-              title="點擊查看 V6.3-PRO 版本更新日誌與新功能說明"
+              title="點擊查看系統更新記錄與新功能說明"
             >
               <Sparkles className="w-3 h-3 text-amber-400 animate-pulse" />
-              <span>V6.3-PRO 更新說明</span>
+              <span>新功能記錄</span>
             </button>
 
             {/* TW Market Badge */}

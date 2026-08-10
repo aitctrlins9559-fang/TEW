@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Download, Upload, CloudUpload, Box, Plus, History, Edit3, Trash2, Calendar, Sparkles } from 'lucide-react';
+import { PieChart, Download, Upload, Box, Plus, History, Edit3, Trash2, Calendar, Sparkles } from 'lucide-react';
 import { StockPosition } from '../types';
 import { formatMoney } from '../utils/format';
 import { playClickSound } from '../utils/audio';
@@ -17,7 +17,7 @@ interface StockTableProps {
   onDeleteStock: (stockId: string) => void;
   onOpenAddModal: () => void;
   onToggleAdmin: () => void;
-  onPublishToGlobal: () => void;
+  onPublishToGlobal?: () => void;
   onExportData: () => void;
   onImportData: () => void;
 }
@@ -77,25 +77,6 @@ export const StockTable: React.FC<StockTableProps> = ({
             title="從 JSON 還原持股資料"
           >
             <Upload className="w-4 h-4 text-indigo-400" /> 還原
-          </button>
-
-          <button
-            onClick={() => {
-              playClickSound();
-              if (!isAdmin) {
-                onToggleAdmin();
-              } else {
-                onPublishToGlobal();
-              }
-            }}
-            className={`text-xs font-bold px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact ${
-              isAdmin
-                ? 'bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/20 shadow-[0_0_10px_rgba(56,189,248,0.15)]'
-                : 'bg-slate-800/60 text-slate-400 hover:bg-slate-700 border border-white/5'
-            }`}
-            title={isAdmin ? "覆蓋更新至 GAS 雲端" : "【鎖定中】點擊輸入密碼解鎖解開雲端推送功能"}
-          >
-            <CloudUpload className="w-4 h-4" /> 雲端
           </button>
         </div>
       </div>

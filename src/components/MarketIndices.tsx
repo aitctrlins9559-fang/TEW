@@ -1,12 +1,14 @@
 import React from 'react';
-import { Sunrise, Sunset, Activity, TrendingUp, TrendingDown } from 'lucide-react';
+import { Sunrise, Sunset, Activity, TrendingUp, TrendingDown, LineChart } from 'lucide-react';
 import { MarketIndex } from '../types';
+import { playClickSound } from '../utils/audio';
 
 interface MarketIndicesProps {
   indices: MarketIndex[];
   twiiChangePct: number | null;
   portfolioTodayPct: number | null;
   isRedUp: boolean;
+  onSelectIndex?: (symbol: string, market: 'tse' | 'otc' | 'us', name: string) => void;
 }
 
 export const MarketIndices: React.FC<MarketIndicesProps> = ({
@@ -14,6 +16,7 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
   twiiChangePct,
   portfolioTodayPct,
   isRedUp,
+  onSelectIndex,
 }) => {
   const getIndex = (symbol: string) => indices.find((i) => i.symbol === symbol);
 
@@ -27,7 +30,12 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
   const getUpClass = () => (isRedUp ? 'text-rose-400' : 'text-emerald-400');
   const getDownClass = () => (isRedUp ? 'text-emerald-400' : 'text-rose-400');
 
-  const renderCard = (indexItem: MarketIndex | undefined, name: string, symbol: string) => {
+  const renderCard = (
+    indexItem: MarketIndex | undefined,
+    name: string,
+    symbol: string,
+    marketType: 'tse' | 'us' = 'tse'
+  ) => {
     const price = indexItem?.price;
     const prevClose = indexItem?.prevClose;
     const change = indexItem?.change;
@@ -42,14 +50,24 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
         : getDownClass();
 
     return (
-      <div className="glass-card hover-card p-4 rounded-2xl group cursor-default border border-white/5 space-y-2 relative overflow-hidden">
+      <div
+        onClick={() => {
+          playClickSound();
+          onSelectIndex?.(symbol, marketType, name);
+        }}
+        className="glass-card hover-card p-4 rounded-2xl group cursor-pointer hover:border-sky-500/40 hover:scale-[1.01] active:scale-[0.98] transition-all space-y-2 relative overflow-hidden"
+        title="點擊切換查看該指數即時走勢圖 📈"
+      >
         {/* Top bar: name and market code */}
         <div className="flex justify-between items-center text-[11px] text-slate-400 font-semibold tracking-wider">
-          <span className="flex items-center gap-1">
+          <span className="flex items-center gap-1 group-hover:text-sky-300 transition">
             <Activity className="w-3.5 h-3.5 text-sky-400" />
             {name}
           </span>
-          <span className="font-mono text-slate-500">{symbol}</span>
+          <span className="font-mono text-slate-500 text-[10px] flex items-center gap-1">
+            <LineChart className="w-3 h-3 text-sky-400/60 opacity-0 group-hover:opacity-100 transition" />
+            {symbol}
+          </span>
         </div>
 
         {/* Index price & change */}
@@ -121,9 +139,9 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-          {renderCard(twii, '台股加權指數', '^TWII')}
-          {renderCard(n225, '日經 225 指數', '^N225')}
-          {renderCard(ks11, '韓國 KOSPI', '^KS11')}
+          {renderCard(twii, '台股加權指數', '^TWII', 'tse')}
+          {renderCard(n225, '日經 225 指數', '^N225', 'tse')}
+          {renderCard(ks11, '韓國 KOSPI', '^KS11', 'tse')}
         </div>
       </div>
 
@@ -133,9 +151,9 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
           <Sunset className="w-4 h-4 text-indigo-400" /> 美股三大核心指數
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-          {renderCard(dji, '道瓊工業指數', '^DJI')}
-          {renderCard(gspc, '標普 500 指數', '^GSPC')}
-          {renderCard(ixic, '那斯達克指數', '^IXIC')}
+          {renderCard(dji, '道瓊工業指數', '^DJI', 'us')}
+          {renderCard(gspc, '標普 500 指數', '^GSPC', 'us')}
+          {renderCard(ixic, '那斯達克指數', '^IXIC', 'us')}
         </div>
       </div>
     </div>

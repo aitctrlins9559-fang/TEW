@@ -81,8 +81,20 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               className="w-full glass-input rounded-xl px-4 py-3 text-white font-mono text-xs outline-none focus:border-indigo-400"
             />
             <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-              同步網址已藏入鎖定模式保護，防止未授權觀看。在其他設備輸入相同網址，即可隨時拉取最新持股數據。
+              貼上您的 Google Apps Script 網址後點擊『儲存網址設定』。在其他設備輸入相同網址，即可雙向拉取與推送持股。
             </p>
+          </div>
+
+          <div className="bg-slate-900/60 p-3 rounded-xl border border-white/5 text-[11px] text-slate-300 space-y-1">
+            <div className="font-bold text-amber-400 flex items-center gap-1">
+              💡 雲端同步無效或測試失敗的常見原因：
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-slate-400 text-[10px] leading-relaxed">
+              <li><strong>尚未填寫網址</strong>：本系統預設為純離線 (LocalStorage) 儲存，需自行填寫 GAS 網址。</li>
+              <li><strong>GAS 部署權限問題</strong>：部署 Web App 時「誰可以存取」請必須選擇 <strong>「任何人 (Anyone)」</strong>。</li>
+              <li><strong>未解鎖管理員</strong>：推送備份需點擊頂部標題旁的🔒解鎖權限。</li>
+              <li><strong>替代方案</strong>：若無 Google 試算表，可使用表格右上角的 <strong>「匯出備份 (JSON)」</strong> 功能跨設備轉移。</li>
+            </ul>
           </div>
 
           {/* Action buttons */}

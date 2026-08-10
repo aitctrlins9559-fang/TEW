@@ -838,6 +838,11 @@ export default function App() {
           twiiChangePct={twiiChangePct}
           portfolioTodayPct={portfolioTodayPct}
           isRedUp={isRedUp}
+          onSelectIndex={(symbol, market, name) => {
+            setSelectedChartTarget({ symbol, market, name });
+            const chartCard = document.getElementById('singleStockChartCard');
+            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
         />
 
         {/* Lunar Fortune & Mindset Card */}
@@ -914,7 +919,10 @@ export default function App() {
               savePortfolioLocal(portfolio, cloudSyncUrl);
               showToast('已強制發布備份至雲端！');
             } else {
-              showToast('請先進行雲端綁定與解鎖管理員', false);
+              setIsSyncModalOpen(true);
+              if (!isAdmin) {
+                showToast('請先開啟管理員權限 (或直接於對話框設定雲端網址)', false);
+              }
             }
           }}
           onExportData={() => {

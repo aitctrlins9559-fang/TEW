@@ -61,7 +61,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
 
       try {
         const s =
-          target.market === 'tse'
+          target.symbol.startsWith('^')
+            ? target.symbol
+            : target.market === 'tse'
             ? `${target.symbol}.TW`
             : target.market === 'otc'
             ? `${target.symbol}.TWO`
