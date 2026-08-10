@@ -58,10 +58,18 @@ export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
             onTriggerMVP(mvp.name, pStr, mvp.roi);
           }
         }}
-        className="glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 border-l-emerald-500/50 cursor-pointer group"
+        className={`glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 ${
+          isRedUp ? 'border-l-rose-500/50' : 'border-l-emerald-500/50'
+        } cursor-pointer group`}
       >
         <div>
-          <div className="text-[10px] text-emerald-400/80 font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 group-hover:text-emerald-300 transition">
+          <div
+            className={`text-[10px] font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 transition ${
+              isRedUp
+                ? 'text-rose-400/80 group-hover:text-rose-300'
+                : 'text-emerald-400/80 group-hover:text-emerald-300'
+            }`}
+          >
             <TrendingUp className="w-3.5 h-3.5" /> 最佳獲利 (點擊解鎖成就)
           </div>
           <div className="text-lg font-black text-white tracking-wide">
@@ -83,10 +91,18 @@ export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
             onTriggerLVP(lvp.name, pStr, lvp.roi);
           }
         }}
-        className="glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 border-l-rose-500/50 cursor-pointer group"
+        className={`glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 ${
+          isRedUp ? 'border-l-emerald-500/50' : 'border-l-rose-500/50'
+        } cursor-pointer group`}
       >
         <div>
-          <div className="text-[10px] text-rose-400/80 font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 group-hover:text-rose-300 transition">
+          <div
+            className={`text-[10px] font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 transition ${
+              isRedUp
+                ? 'text-emerald-400/80 group-hover:text-emerald-300'
+                : 'text-rose-400/80 group-hover:text-rose-300'
+            }`}
+          >
             <TrendingDown className="w-3.5 h-3.5" /> 最大虧損 (點擊啟動風控)
           </div>
           <div className="text-lg font-black text-white tracking-wide">

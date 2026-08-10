@@ -424,6 +424,88 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         </div>
       </div>
 
+      {/* Prominent Realtime Price Hero Banner (即時限價大字高亮) */}
+      {intradayData && (
+        <div className="bg-slate-900/80 p-4 md:p-5 rounded-2xl border border-sky-500/30 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg md:text-xl font-black text-white tracking-wide">
+                {intradayData.name}
+              </span>
+              <span className="text-sm font-mono font-bold text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-lg">
+                {intradayData.symbol}
+              </span>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300">
+                {intradayData.market === 'us' ? '美股' : intradayData.market === 'otc' ? '上櫃' : '上市'}
+              </span>
+            </div>
+            <div className="text-xs text-slate-400 flex items-center gap-2 font-mono">
+              <span>昨收: <strong className="text-slate-200">${intradayData.prevClose.toFixed(2)}</strong></span>
+              <span>•</span>
+              <span>最高: <strong className="text-rose-400">${intradayData.highPrice.toFixed(2)}</strong></span>
+              <span>•</span>
+              <span>最低: <strong className="text-emerald-400">${intradayData.lowPrice.toFixed(2)}</strong></span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 self-end md:self-auto">
+            <div className="text-right">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-end gap-1 mb-0.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                即時盤中現價 (Live Price)
+              </div>
+              <div
+                className={`text-3xl md:text-4xl font-black font-mono tracking-tight tabular-nums ${
+                  diff > 0
+                    ? isRedUp
+                      ? 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                      : 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                    : diff < 0
+                    ? isRedUp
+                      ? 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                      : 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                    : 'text-slate-100'
+                }`}
+              >
+                ${intradayData.latestPrice.toFixed(2)}
+                <span className="text-xs font-sans text-slate-400 font-semibold ml-1">
+                  {intradayData.market === 'us' ? 'USD' : 'NT$'}
+                </span>
+              </div>
+            </div>
+
+            <div
+              className={`px-3.5 py-2 rounded-2xl border font-mono font-bold flex flex-col items-center justify-center shrink-0 shadow-lg ${
+                diff > 0
+                  ? isRedUp
+                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                    : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : diff < 0
+                  ? isRedUp
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                    : 'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                  : 'bg-slate-800 border-white/10 text-slate-300'
+              }`}
+            >
+              <div className="text-sm md:text-base font-extrabold flex items-center gap-0.5">
+                {diff > 0 ? (isRedUp ? '▲' : '▲') : diff < 0 ? (isRedUp ? '▼' : '▼') : '─'}
+                {diff > 0 ? '+' : ''}
+                {diff.toFixed(2)}
+              </div>
+              <div className="text-xs font-semibold">
+                {diffPct > 0 ? '+' : ''}
+                {diffPct.toFixed(2)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 6 High-Tech Metric Tiles (調優字體大小) */}
       {intradayData ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">

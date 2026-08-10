@@ -25,6 +25,8 @@ import { TodayPLModal } from './components/Modals/TodayPLModal';
 import { SyncModal } from './components/Modals/SyncModal';
 import { ActionModal } from './components/Modals/ActionModal';
 import { AICopilotModal } from './components/Modals/AICopilotModal';
+import { VersionHistoryModal } from './components/Modals/VersionHistoryModal';
+import { DividendCalendar } from './components/DividendCalendar';
 import { ApiDebugPanel } from './components/ApiDebugPanel';
 import { getTaiwanDateString, getTaiwanTimeString } from './utils/format';
 import {
@@ -158,6 +160,7 @@ export default function App() {
 
   // AI Copilot state
   const [isAICopilotOpen, setIsAICopilotOpen] = useState(false);
+  const [isVersionModalOpen, setIsVersionModalOpen] = useState(false);
   const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -808,6 +811,7 @@ export default function App() {
             setIsAICopilotOpen(true);
             if (!aiAnalysisResult) handleRunAIAnalysis();
           }}
+          onOpenChangelog={() => setIsVersionModalOpen(true)}
           usdTwdRate={usdTwdRate}
           lastUpdateTime={lastSyncTime}
           twMarketOpen={twMarketOpen}
@@ -940,29 +944,6 @@ export default function App() {
           }}
         />
 
-        {/* Portfolio Valuation & Allocation Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <AssetTrendChart
-            labels={['1月', '3月', '5月', '7月', '今日']}
-            data={[
-              totalCostTWD * 0.9,
-              totalCostTWD * 0.95,
-              totalCostTWD * 1.02,
-              totalCostTWD * 1.05,
-              totalValTWD || totalCostTWD,
-            ]}
-            currentVal={totalValTWD}
-            isPrivacy={isPrivacy}
-            isRedUp={isRedUp}
-          />
-
-          <AllocationPieChart
-            portfolio={portfolio}
-            usdTwdRate={usdTwdRate}
-            isPrivacy={isPrivacy}
-          />
-        </div>
-
         {/* Intraday Single Stock Chart */}
         <SingleStockChart
           portfolio={portfolio}
@@ -971,6 +952,13 @@ export default function App() {
             setSelectedChartTarget({ symbol, market, name })
           }
           isRedUp={isRedUp}
+        />
+
+        {/* Dividend Calendar & Passive Income Simulator */}
+        <DividendCalendar
+          portfolio={portfolio}
+          usdTwdRate={usdTwdRate}
+          isPrivacy={isPrivacy}
         />
       </div>
 
@@ -1028,6 +1016,7 @@ export default function App() {
         name={actionModal.name}
         profitStr={actionModal.profitStr}
         roi={actionModal.roi}
+        isRedUp={isRedUp}
         onClose={() => setActionModal((prev) => ({ ...prev, isOpen: false }))}
       />
 
@@ -1038,6 +1027,11 @@ export default function App() {
         error={aiError}
         onClose={() => setIsAICopilotOpen(false)}
         onReanalyze={handleRunAIAnalysis}
+      />
+
+      <VersionHistoryModal
+        isOpen={isVersionModalOpen}
+        onClose={() => setIsVersionModalOpen(false)}
       />
 
       {/* Floating Mobile AI Copilot Shortcut */}
