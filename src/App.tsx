@@ -1,0 +1,983 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  StockPosition,
+  MarketType,
+  MarketIndex,
+  NewsItem,
+  ChartTarget,
+  ApiHealthStatus,
+  AIAnalysisResult,
+  TransactionRecord,
+} from './types';
+import { Header } from './components/Header';
+import { KpiCards } from './components/KpiCards';
+import { MarketIndices } from './components/MarketIndices';
+import { LunarFortuneCard } from './components/LunarFortuneCard';
+import { PerformanceBanners } from './components/PerformanceBanners';
+import { NewsMarquee } from './components/NewsMarquee';
+import { StockTable } from './components/StockTable';
+import { AssetTrendChart } from './components/Charts/AssetTrendChart';
+import { AllocationPieChart } from './components/Charts/AllocationPieChart';
+import { SingleStockChart } from './components/Charts/SingleStockChart';
+import { StockModal } from './components/Modals/StockModal';
+import { TransactionHistoryModal } from './components/Modals/TransactionHistoryModal';
+import { TodayPLModal } from './components/Modals/TodayPLModal';
+import { SyncModal } from './components/Modals/SyncModal';
+import { ActionModal } from './components/Modals/ActionModal';
+import { AICopilotModal } from './components/Modals/AICopilotModal';
+import { ApiDebugPanel } from './components/ApiDebugPanel';
+import { getTaiwanDateString, getTaiwanTimeString } from './utils/format';
+import {
+  playSuccessSound,
+  playDeleteSound,
+  playCoinSound,
+  playShieldBreakSound,
+  playClickSound,
+} from './utils/audio';
+import { Sparkles } from 'lucide-react';
+
+const INITIAL_PORTFOLIO: StockPosition[] = [
+  {
+    id: 'stk_1',
+    symbol: '2330',
+    name: '台積電',
+    market: 'tse',
+    shares: 1000,
+    cost: 850,
+    buyDate: '2024-05-10',
+    buyRate: 1,
+    price: 980,
+    prevClose: 975,
+    dayHigh: 985,
+    dayLow: 970,
+    transactions: [
+      { id: 'tx_1', buyDate: '2024-05-10', shares: 1000, cost: 850, buyRate: 1 },
+    ],
+  },
+  {
+    id: 'stk_2',
+    symbol: 'NVDA',
+    name: 'NVIDIA 輝達',
+    market: 'us',
+    shares: 50,
+    cost: 110,
+    buyDate: '2024-06-15',
+    buyRate: 32.2,
+    price: 128,
+    prevClose: 125,
+    dayHigh: 130,
+    dayLow: 124,
+    transactions: [
+      { id: 'tx_2', buyDate: '2024-06-15', shares: 50, cost: 110, buyRate: 32.2 },
+    ],
+  },
+  {
+    id: 'stk_3',
+    symbol: '0050',
+    name: '元大台灣50',
+    market: 'tse',
+    shares: 2000,
+    cost: 155,
+    buyDate: '2024-01-20',
+    buyRate: 1,
+    price: 172,
+    prevClose: 170,
+    dayHigh: 173,
+    dayLow: 169,
+    transactions: [
+      { id: 'tx_3', buyDate: '2024-01-20', shares: 2000, cost: 155, buyRate: 1 },
+    ],
+  },
+];
+
+export default function App() {
+  // State variables
+  const [portfolio, setPortfolio] = useState<StockPosition[]>([]);
+  const [usdTwdRate, setUsdTwdRate] = useState<number>(31.5);
+  const [indices, setIndices] = useState<MarketIndex[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [lastNewsTime, setLastNewsTime] = useState<string>('');
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isRedUp, setIsRedUp] = useState(true);
+  const [isPrivacy, setIsPrivacy] = useState(false);
+
+  const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true);
+  const [activeRefreshInterval, setActiveRefreshInterval] = useState(60);
+  const [countdownTimer, setCountdownTimer] = useState(60);
+  const [isFetchingPrices, setIsFetchingPrices] = useState(false);
+
+  const [cloudSyncUrl, setCloudSyncUrl] = useState('');
+  const [lastSyncTime, setLastSyncTime] = useState('');
+  const [lastCloudWriteTime, setLastCloudWriteTime] = useState('');
+  const [quoteSuccessCount, setQuoteSuccessCount] = useState(0);
+
+  const [toastMessage, setToastMessage] = useState<{ text: string; isSuccess: boolean } | null>(null);
+
+  // Market hours status
+  const [twMarketOpen, setTwMarketOpen] = useState(false);
+  const [usMarketOpen, setUsMarketOpen] = useState(false);
+
+  // Selected chart target
+  const [selectedChartTarget, setSelectedChartTarget] = useState<ChartTarget>({
+    symbol: '2330',
+    market: 'tse',
+    name: '台積電',
+  });
+
+  // Modal control states
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [editStock, setEditStock] = useState<StockPosition | null>(null);
+
+  const [isTxHistoryModalOpen, setIsTxHistoryModalOpen] = useState(false);
+  const [txHistoryStock, setTxHistoryStock] = useState<StockPosition | null>(null);
+
+  const [isTodayPLModalOpen, setIsTodayPLModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+  const [actionModal, setActionModal] = useState<{
+    isOpen: boolean;
+    type: 'mvp' | 'lvp' | null;
+    name: string;
+    profitStr: string;
+    roi: number;
+  }>({ isOpen: false, type: null, name: '', profitStr: '', roi: 0 });
+
+  // AI Copilot state
+  const [isAICopilotOpen, setIsAICopilotOpen] = useState(false);
+  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<AIAnalysisResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Api health status
+  const [apiHealth, setApiHealth] = useState<ApiHealthStatus>({
+    cloud: { name: 'Cloud API', status: 'PENDING', ms: 0, error: null },
+    yahoo: { name: 'Yahoo Quote', status: 'PENDING', ms: 0, error: null },
+    twse: { name: 'TWSE API', status: 'PENDING', ms: 0, error: null },
+    tpex: { name: 'TPEX API', status: 'PENDING', ms: 0, error: null },
+    search: { name: 'Stock Search', status: 'OK', ms: 120, error: null },
+    fx: { name: 'FX API', status: 'PENDING', ms: 0, error: null },
+  });
+
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showToast = useCallback((msg: string, isSuccess = true) => {
+    setToastMessage({ text: msg, isSuccess });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  }, []);
+
+  // Save portfolio to local & sync to cloud
+  const savePortfolioLocal = useCallback(
+    async (newPortfolio: StockPosition[], syncUrl = cloudSyncUrl) => {
+      localStorage.setItem('stock_radar_data', JSON.stringify(newPortfolio));
+
+      if (syncUrl && syncUrl.includes('script.google.com') && isAdmin && adminPassword) {
+        try {
+          const res = await fetch(syncUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ password: adminPassword, data: newPortfolio }),
+          });
+          const result = await res.json();
+          if (result.status === 'success') {
+            setLastCloudWriteTime(`${getTaiwanDateString()} ${getTaiwanTimeString()}`);
+          }
+        } catch {
+          // ignore background sync error
+        }
+      }
+    },
+    [cloudSyncUrl, isAdmin, adminPassword]
+  );
+
+  // Normalize raw portfolio data
+  const normalizePortfolio = useCallback((data: unknown[]): StockPosition[] => {
+    if (!Array.isArray(data)) return [];
+    return data
+      .filter((item) => item && typeof item === 'object')
+      .map((item: Record<string, unknown>) => {
+        const txs: TransactionRecord[] =
+          Array.isArray(item.transactions) && item.transactions.length > 0
+            ? (item.transactions as TransactionRecord[])
+            : [
+                {
+                  id: `tx_init_${Date.now()}`,
+                  buyDate: typeof item.buyDate === 'string' ? item.buyDate : '',
+                  shares: Number(item.shares) || 0,
+                  cost: Number(item.cost) || 0,
+                  buyRate: Number(item.buyRate) || 1,
+                },
+              ];
+
+        let totalShares = 0;
+        let totalCostVal = 0;
+        let totalBuyRateVal = 0;
+
+        txs.forEach((t) => {
+          const s = Number(t.shares) || 0;
+          const c = Number(t.cost) || 0;
+          const r = Number(t.buyRate) || 1;
+          totalShares += s;
+          totalCostVal += s * c;
+          totalBuyRateVal += s * r;
+        });
+
+        const avgCost = totalShares > 0 ? totalCostVal / totalShares : Number(item.cost || 0);
+        const avgBuyRate = totalShares > 0 ? totalBuyRateVal / totalShares : Number(item.buyRate || 1);
+        const lastBuyDate =
+          txs.length > 0 ? txs[txs.length - 1].buyDate : (item.buyDate as string) || '';
+
+        return {
+          id: String(item.id || `stk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`),
+          symbol: String(item.symbol || '').trim().toUpperCase(),
+          name: String(item.name || item.symbol || '').trim(),
+          market: (['tse', 'otc', 'us'].includes(item.market as string) ? item.market : 'tse') as MarketType,
+          transactions: txs,
+          shares: totalShares,
+          cost: Number(avgCost.toFixed(4)),
+          buyDate: lastBuyDate,
+          buyRate: Number(avgBuyRate.toFixed(2)),
+          price: typeof item.price === 'number' && item.price > 0 ? item.price : null,
+          prevClose: typeof item.prevClose === 'number' && item.prevClose > 0 ? item.prevClose : null,
+          dayHigh: typeof item.dayHigh === 'number' ? item.dayHigh : null,
+          dayLow: typeof item.dayLow === 'number' ? item.dayLow : null,
+          fetchError: Boolean(item.fetchError),
+        };
+      })
+      .filter(
+        (item) =>
+          item.symbol &&
+          item.name &&
+          Number.isFinite(item.shares) &&
+          item.shares > 0 &&
+          Number.isFinite(item.cost) &&
+          item.cost >= 0
+      );
+  }, []);
+
+  // Fetch quotes from server route
+  const fetchRealtimePrices = useCallback(async (isManual = false) => {
+    setIsFetchingPrices(true);
+    const tStart = performance.now();
+
+    try {
+      // 1. Fetch USD rate
+      const fxRes = await fetch('/api/fx');
+      const fxJson = await fxRes.json();
+      const newFx = fxJson.rate || 31.5;
+      setUsdTwdRate(newFx);
+
+      // 2. Fetch quotes for all portfolio stocks
+      setPortfolio((prevPortfolio) => {
+        if (prevPortfolio.length === 0) return prevPortfolio;
+
+        const symbols = prevPortfolio.map((p) =>
+          p.market === 'tse' ? `${p.symbol}.TW` : p.market === 'otc' ? `${p.symbol}.TWO` : p.symbol
+        );
+
+        fetch('/api/quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols }),
+        })
+          .then((res) => res.json())
+          .then((quoteData) => {
+            const results: Array<{
+              symbol: string;
+              regularMarketPrice: number;
+              regularMarketPreviousClose: number;
+              regularMarketDayHigh: number;
+              regularMarketDayLow: number;
+            }> = quoteData.results || [];
+
+            let success = 0;
+            const updated = prevPortfolio.map((item) => {
+              const symKey =
+                item.market === 'tse'
+                  ? `${item.symbol}.TW`
+                  : item.market === 'otc'
+                  ? `${item.symbol}.TWO`
+                  : item.symbol;
+
+              const q = results.find((r) => r.symbol === symKey);
+              if (q && typeof q.regularMarketPrice === 'number') {
+                success++;
+                const oldPrice = item.price;
+                const newPrice = q.regularMarketPrice;
+                let priceChanged: 'up' | 'down' | null = null;
+
+                if (oldPrice !== null && oldPrice !== undefined) {
+                  if (newPrice > oldPrice) priceChanged = 'up';
+                  else if (newPrice < oldPrice) priceChanged = 'down';
+                }
+
+                return {
+                  ...item,
+                  price: newPrice,
+                  prevClose: q.regularMarketPreviousClose,
+                  dayHigh: q.regularMarketDayHigh,
+                  dayLow: q.regularMarketDayLow,
+                  fetchError: false,
+                  priceChanged,
+                };
+              }
+              return { ...item, fetchError: true };
+            });
+
+            setQuoteSuccessCount(success);
+            setPortfolio(updated);
+            savePortfolioLocal(updated);
+          })
+          .catch(() => {
+            // ignore
+          });
+
+        return prevPortfolio;
+      });
+
+      // 3. Fetch indices
+      const idxRes = await fetch('/api/indices');
+      const idxJson = await idxRes.json();
+      if (idxJson.success && Array.isArray(idxJson.results)) {
+        setIndices(idxJson.results);
+      }
+
+      setLastSyncTime(`${getTaiwanDateString()} ${getTaiwanTimeString()}`);
+      setApiHealth((prev) => ({
+        ...prev,
+        yahoo: { name: 'Yahoo Quote', status: 'OK', ms: Math.round(performance.now() - tStart), error: null },
+        fx: { name: 'FX API', status: 'OK', ms: 80, error: null },
+      }));
+
+      if (isManual) {
+        playSuccessSound();
+        showToast('盤價與匯率同步完成！');
+      }
+    } catch {
+      if (isManual) showToast('行情連線逾時，請檢查網路狀態', false);
+    } finally {
+      setIsFetchingPrices(false);
+      setCountdownTimer(60);
+    }
+  }, [showToast, savePortfolioLocal]);
+
+  // Fetch news
+  const fetchNews = useCallback(async () => {
+    try {
+      const res = await fetch('/api/news');
+      const json = await res.json();
+      if (json.success && Array.isArray(json.items)) {
+        setNews(json.items);
+        setLastNewsTime(getTaiwanTimeString());
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    const savedSyncUrl = localStorage.getItem('stock_radar_sync_url') || '';
+    setCloudSyncUrl(savedSyncUrl);
+
+    const savedData = localStorage.getItem('stock_radar_data');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setPortfolio(normalizePortfolio(parsed));
+      } catch {
+        setPortfolio(normalizePortfolio(INITIAL_PORTFOLIO));
+      }
+    } else {
+      setPortfolio(normalizePortfolio(INITIAL_PORTFOLIO));
+    }
+
+    fetchRealtimePrices();
+    fetchNews();
+  }, [normalizePortfolio, fetchRealtimePrices, fetchNews]);
+
+  // Market hours check & Smart timer
+  useEffect(() => {
+    const checkMarketStatus = () => {
+      const now = new Date();
+      const twDay = now.getDay();
+      const twHour = now.getHours();
+      const twMin = now.getMinutes();
+      const isTwWeekday = twDay >= 1 && twDay <= 5;
+      const isTwOpenTime =
+        (twHour === 9 && twMin >= 0) || (twHour > 9 && twHour < 13) || (twHour === 13 && twMin <= 30);
+      setTwMarketOpen(isTwWeekday && isTwOpenTime);
+
+      const nyDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      const nyDay = nyDate.getDay();
+      const nyHour = nyDate.getHours();
+      const nyMin = nyDate.getMinutes();
+      const isNyWeekday = nyDay >= 1 && nyDay <= 5;
+      const isNyOpenTime = (nyHour === 9 && nyMin >= 30) || (nyHour >= 10 && nyHour < 16);
+      setUsMarketOpen(isNyWeekday && isNyOpenTime);
+
+      const isAnyOpen = (isTwWeekday && isTwOpenTime) || (isNyWeekday && isNyOpenTime);
+      const targetInterval = isAnyOpen ? 15 : 60;
+      setActiveRefreshInterval(targetInterval);
+    };
+
+    checkMarketStatus();
+    const interval = setInterval(checkMarketStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Countdown timer loop
+  useEffect(() => {
+    if (!isAutoRefreshOn || isFetchingPrices) return;
+
+    const timer = setInterval(() => {
+      setCountdownTimer((prev) => {
+        if (prev <= 1) {
+          fetchRealtimePrices();
+          return activeRefreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isAutoRefreshOn, isFetchingPrices, activeRefreshInterval, fetchRealtimePrices]);
+
+  // Admin toggle
+  const handleToggleAdmin = () => {
+    if (isAdmin) {
+      setIsAdmin(false);
+      setAdminPassword('');
+      showToast('已鎖定管理權限');
+    } else {
+      const pwd = prompt('請輸入密碼以解鎖編輯與備份功能：');
+      if (pwd) {
+        setIsAdmin(true);
+        setAdminPassword(pwd);
+        showToast('✅ 編輯與備份功能已解鎖');
+      }
+    }
+  };
+
+  // Stock Save
+  const handleSaveStock = (stockData: {
+    editId: string;
+    symbol: string;
+    name: string;
+    market: MarketType;
+    shares: number;
+    cost: number;
+    buyDate: string;
+    buyRate: number;
+  }) => {
+    const newTx: TransactionRecord = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      buyDate: stockData.buyDate,
+      shares: stockData.shares,
+      cost: stockData.cost,
+      buyRate: stockData.buyRate,
+    };
+
+    let updated: StockPosition[];
+
+    if (stockData.editId) {
+      updated = portfolio.map((item) =>
+        item.id === stockData.editId
+          ? {
+              ...item,
+              symbol: stockData.symbol,
+              name: stockData.name,
+              market: stockData.market,
+              transactions: [newTx],
+              shares: stockData.shares,
+              cost: stockData.cost,
+              buyDate: stockData.buyDate,
+              buyRate: stockData.buyRate,
+            }
+          : item
+      );
+      showToast('持股資料已更新！');
+    } else {
+      const existingIdx = portfolio.findIndex(
+        (p) => p.symbol === stockData.symbol && p.market === stockData.market
+      );
+
+      if (existingIdx !== -1) {
+        updated = [...portfolio];
+        updated[existingIdx].transactions.push(newTx);
+        showToast(`已為 ${stockData.symbol} 新增買入紀錄並加權平均成本！`);
+      } else {
+        const newItem: StockPosition = {
+          id: `stk_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          symbol: stockData.symbol,
+          name: stockData.name,
+          market: stockData.market,
+          transactions: [newTx],
+          shares: stockData.shares,
+          cost: stockData.cost,
+          buyDate: stockData.buyDate,
+          buyRate: stockData.buyRate,
+          price: null,
+          prevClose: null,
+          dayHigh: null,
+          dayLow: null,
+        };
+        updated = [...portfolio, newItem];
+        showToast('持股部位新增成功！');
+      }
+    }
+
+    const normalized = normalizePortfolio(updated);
+    setPortfolio(normalized);
+    savePortfolioLocal(normalized);
+    setIsStockModalOpen(false);
+    playSuccessSound();
+    fetchRealtimePrices();
+  };
+
+  // Stock Delete
+  const handleDeleteStock = (id: string) => {
+    if (!isAdmin) return;
+    if (confirm('確定要移除此監控部位嗎？')) {
+      playDeleteSound();
+      const updated = portfolio.filter((p) => p.id !== id);
+      setPortfolio(updated);
+      savePortfolioLocal(updated);
+      showToast('已移除該部位！');
+    }
+  };
+
+  // Add sub-transaction
+  const handleAddTransaction = (
+    stockId: string,
+    buyDate: string,
+    shares: number,
+    cost: number
+  ) => {
+    const updated = portfolio.map((item) => {
+      if (item.id === stockId) {
+        const newTx: TransactionRecord = {
+          id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          buyDate,
+          shares,
+          cost,
+          buyRate: item.market === 'us' ? usdTwdRate : 1,
+        };
+        return {
+          ...item,
+          transactions: [...item.transactions, newTx],
+        };
+      }
+      return item;
+    });
+
+    const normalized = normalizePortfolio(updated);
+    setPortfolio(normalized);
+    savePortfolioLocal(normalized);
+    showToast('已成功加入買入歷程！');
+    playSuccessSound();
+
+    // Update open modal stock
+    const updatedStock = normalized.find((p) => p.id === stockId);
+    if (updatedStock) setTxHistoryStock(updatedStock);
+  };
+
+  // Delete sub-transaction
+  const handleDeleteTransaction = (stockId: string, txId: string) => {
+    const item = portfolio.find((p) => p.id === stockId);
+    if (!item) return;
+
+    if (item.transactions.length <= 1) {
+      showToast('至少需保留一筆買入記錄', false);
+      return;
+    }
+
+    if (confirm('確定要移除此筆扣款紀錄嗎？')) {
+      playDeleteSound();
+      const updated = portfolio.map((p) => {
+        if (p.id === stockId) {
+          return {
+            ...p,
+            transactions: p.transactions.filter((t) => t.id !== txId),
+          };
+        }
+        return p;
+      });
+
+      const normalized = normalizePortfolio(updated);
+      setPortfolio(normalized);
+      savePortfolioLocal(normalized);
+      showToast('已刪除該筆扣款紀錄');
+
+      const updatedStock = normalized.find((p) => p.id === stockId);
+      if (updatedStock) setTxHistoryStock(updatedStock);
+    }
+  };
+
+  // AI Copilot analysis request
+  const handleRunAIAnalysis = async () => {
+    setIsAIAnalyzing(true);
+    setAiError(null);
+
+    let totalValTWD = 0;
+    let totalCostTWD = 0;
+
+    portfolio.forEach((p) => {
+      const fx = p.market === 'us' ? usdTwdRate : 1;
+      const c = p.shares * p.cost * (p.market === 'us' ? p.buyRate : 1);
+      const v = p.price ? p.shares * p.price * fx : c;
+      totalCostTWD += c;
+      totalValTWD += v;
+    });
+
+    const profit = totalValTWD - totalCostTWD;
+    const roi = totalCostTWD > 0 ? (profit / totalCostTWD) * 100 : 0;
+
+    try {
+      const res = await fetch('/api/ai-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          portfolio,
+          totalValue: Math.round(totalValTWD),
+          totalProfit: Math.round(profit),
+          totalROI: roi.toFixed(2),
+          indices,
+        }),
+      });
+
+      const json = await res.json();
+      if (json.success && json.analysis) {
+        setAiAnalysisResult(json.analysis);
+      } else {
+        throw new Error(json.error || 'AI 戰情產生失敗');
+      }
+    } catch (err) {
+      setAiError((err as Error).message);
+    } finally {
+      setIsAIAnalyzing(false);
+    }
+  };
+
+  // Calculations for total portfolio
+  let totalValTWD = 0;
+  let totalCostTWD = 0;
+  let todayPLTWD = 0;
+  let twCount = 0;
+  let usCount = 0;
+  let hasMissingPrice = false;
+
+  portfolio.forEach((item) => {
+    const isUS = item.market === 'us';
+    const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
+    const marketFx = isUS ? usdTwdRate : 1;
+
+    const costTWD = item.shares * item.cost * buyFx;
+    totalCostTWD += costTWD;
+
+    if (typeof item.price === 'number' && item.price > 0) {
+      const valTWD = item.shares * item.price * marketFx;
+      totalValTWD += valTWD;
+
+      if (typeof item.prevClose === 'number' && item.prevClose > 0) {
+        todayPLTWD += item.shares * (item.price - item.prevClose) * marketFx;
+      }
+    } else {
+      hasMissingPrice = true;
+    }
+
+    if (isUS) usCount++;
+    else twCount++;
+  });
+
+  const totalProfitTWD = hasMissingPrice ? null : totalValTWD - totalCostTWD;
+  const totalROI =
+    hasMissingPrice || totalCostTWD === 0 ? null : (totalProfitTWD! / totalCostTWD) * 100;
+
+  const twiiQ = indices.find((i) => i.symbol === '^TWII');
+  const twiiChangePct = twiiQ ? twiiQ.changePct : null;
+  const portfolioTodayPct = totalCostTWD > 0 ? (todayPLTWD / totalCostTWD) * 100 : null;
+
+  return (
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 antialiased selection:bg-sky-500 selection:text-white">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 bg-slate-800/95 text-white font-medium px-5 py-4 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] z-[999] flex items-center gap-3 border border-slate-600/50 backdrop-blur-xl animate-bounce">
+          <span className={toastMessage.isSuccess ? 'text-sky-400 font-bold' : 'text-rose-400 font-bold'}>
+            {toastMessage.isSuccess ? '✓' : '✕'}
+          </span>
+          <span className="text-sm tracking-wide">{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Main War Room Layout */}
+      <div className="max-w-7xl mx-auto space-y-6 pb-12">
+        {/* Header */}
+        <Header
+          isAdmin={isAdmin}
+          onToggleAdmin={handleToggleAdmin}
+          isRedUp={isRedUp}
+          onToggleTheme={() => setIsRedUp(!isRedUp)}
+          isPrivacy={isPrivacy}
+          onTogglePrivacy={() => setIsPrivacy(!isPrivacy)}
+          isAutoRefreshOn={isAutoRefreshOn}
+          onToggleAutoRefresh={() => setIsAutoRefreshOn(!isAutoRefreshOn)}
+          countdownTimer={countdownTimer}
+          activeRefreshInterval={activeRefreshInterval}
+          onManualRefresh={() => fetchRealtimePrices(true)}
+          isFetchingPrices={isFetchingPrices}
+          cloudSyncUrl={cloudSyncUrl}
+          onOpenSyncModal={() => setIsSyncModalOpen(true)}
+          onOpenAddModal={() => {
+            setEditStock(null);
+            setIsStockModalOpen(true);
+          }}
+          onOpenAICopilot={() => {
+            setIsAICopilotOpen(true);
+            if (!aiAnalysisResult) handleRunAIAnalysis();
+          }}
+          usdTwdRate={usdTwdRate}
+          lastUpdateTime={lastSyncTime}
+          twMarketOpen={twMarketOpen}
+          usMarketOpen={usMarketOpen}
+          quoteSuccessCount={quoteSuccessCount}
+          totalPositionsCount={portfolio.length}
+        />
+
+        {/* API Debug Console (Visible in Admin Mode) */}
+        {isAdmin && (
+          <ApiDebugPanel
+            apiHealth={apiHealth}
+            lastSyncTime={lastSyncTime}
+            quoteSuccessCount={quoteSuccessCount}
+            totalCount={portfolio.length}
+            lastCloudWriteTime={lastCloudWriteTime}
+            onRunDiagnostics={() => fetchRealtimePrices(true)}
+          />
+        )}
+
+        {/* Market Indices Section */}
+        <MarketIndices
+          indices={indices}
+          twiiChangePct={twiiChangePct}
+          portfolioTodayPct={portfolioTodayPct}
+          isRedUp={isRedUp}
+        />
+
+        {/* Lunar Fortune & Mindset Card */}
+        <LunarFortuneCard />
+
+        {/* Performance MVP & LVP Banners */}
+        <PerformanceBanners
+          portfolio={portfolio}
+          usdTwdRate={usdTwdRate}
+          isPrivacy={isPrivacy}
+          isRedUp={isRedUp}
+          onTriggerMVP={(name, profitStr, roi) => {
+            playCoinSound();
+            setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
+          }}
+          onTriggerLVP={(name, profitStr, roi) => {
+            playShieldBreakSound();
+            setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
+          }}
+        />
+
+        {/* KPI Cards Overview */}
+        <KpiCards
+          totalValue={totalValTWD}
+          totalCost={totalCostTWD}
+          todayPL={todayPLTWD}
+          totalProfit={totalProfitTWD}
+          totalROI={totalROI}
+          totalCount={portfolio.length}
+          twCount={twCount}
+          usCount={usCount}
+          isPrivacy={isPrivacy}
+          isRedUp={isRedUp}
+          onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
+        />
+
+        {/* Financial News Marquee */}
+        <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
+
+        {/* Holdings Stock Table */}
+        <StockTable
+          portfolio={portfolio}
+          usdTwdRate={usdTwdRate}
+          isAdmin={isAdmin}
+          isPrivacy={isPrivacy}
+          isRedUp={isRedUp}
+          onSelectChartTarget={(symbol, market, name) => {
+            setSelectedChartTarget({ symbol, market, name });
+            const chartCard = document.getElementById('singleStockChartCard');
+            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+          onOpenTxHistory={(stockId) => {
+            const stk = portfolio.find((p) => p.id === stockId);
+            if (stk) {
+              setTxHistoryStock(stk);
+              setIsTxHistoryModalOpen(true);
+            }
+          }}
+          onOpenEditModal={(stockId) => {
+            const stk = portfolio.find((p) => p.id === stockId);
+            if (stk) {
+              setEditStock(stk);
+              setIsStockModalOpen(true);
+            }
+          }}
+          onDeleteStock={handleDeleteStock}
+          onToggleAdmin={handleToggleAdmin}
+          onPublishToGlobal={() => {
+            if (cloudSyncUrl && isAdmin) {
+              savePortfolioLocal(portfolio, cloudSyncUrl);
+              showToast('已強制發布備份至雲端！');
+            } else {
+              showToast('請先進行雲端綁定與解鎖管理員', false);
+            }
+          }}
+          onExportData={() => {
+            const jsonStr = JSON.stringify(portfolio, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `StockMonitor_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('資料已匯出備份');
+          }}
+          onImportData={() => {
+            const input = prompt('請貼上備份 JSON 內容：');
+            if (input) {
+              try {
+                const parsed = JSON.parse(input);
+                const normalized = normalizePortfolio(parsed);
+                setPortfolio(normalized);
+                savePortfolioLocal(normalized);
+                showToast('備份資料成功還原！');
+              } catch {
+                showToast('JSON 格式錯誤，請檢查輸入', false);
+              }
+            }
+          }}
+        />
+
+        {/* Portfolio Valuation & Allocation Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <AssetTrendChart
+            labels={['1月', '3月', '5月', '7月', '今日']}
+            data={[
+              totalCostTWD * 0.9,
+              totalCostTWD * 0.95,
+              totalCostTWD * 1.02,
+              totalCostTWD * 1.05,
+              totalValTWD || totalCostTWD,
+            ]}
+            currentVal={totalValTWD}
+            isPrivacy={isPrivacy}
+            isRedUp={isRedUp}
+          />
+
+          <AllocationPieChart
+            portfolio={portfolio}
+            usdTwdRate={usdTwdRate}
+            isPrivacy={isPrivacy}
+          />
+        </div>
+
+        {/* Intraday Single Stock Chart */}
+        <SingleStockChart
+          portfolio={portfolio}
+          selectedChartTarget={selectedChartTarget}
+          onSelectChartTarget={(symbol, market, name) =>
+            setSelectedChartTarget({ symbol, market, name })
+          }
+          isRedUp={isRedUp}
+        />
+      </div>
+
+      {/* Modals */}
+      <StockModal
+        isOpen={isStockModalOpen}
+        editStock={editStock}
+        usdTwdRate={usdTwdRate}
+        onClose={() => setIsStockModalOpen(false)}
+        onSave={handleSaveStock}
+      />
+
+      <TransactionHistoryModal
+        isOpen={isTxHistoryModalOpen}
+        stock={txHistoryStock}
+        isAdmin={isAdmin}
+        usdTwdRate={usdTwdRate}
+        onClose={() => setIsTxHistoryModalOpen(false)}
+        onAddTransaction={handleAddTransaction}
+        onDeleteTransaction={handleDeleteTransaction}
+      />
+
+      <TodayPLModal
+        isOpen={isTodayPLModalOpen}
+        portfolio={portfolio}
+        usdTwdRate={usdTwdRate}
+        isPrivacy={isPrivacy}
+        isRedUp={isRedUp}
+        onClose={() => setIsTodayPLModalOpen(false)}
+        onSelectStock={(symbol, market, name) => {
+          setSelectedChartTarget({ symbol, market, name });
+          const chartCard = document.getElementById('singleStockChartCard');
+          if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+      />
+
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        currentSyncUrl={cloudSyncUrl}
+        onClose={() => setIsSyncModalOpen(false)}
+        onSaveSyncUrl={(url) => {
+          setCloudSyncUrl(url);
+          localStorage.setItem('stock_radar_sync_url', url);
+          setIsSyncModalOpen(false);
+          showToast(url ? '雲端網址已設定' : '已恢復本機模式');
+        }}
+      />
+
+      <ActionModal
+        isOpen={actionModal.isOpen}
+        type={actionModal.type}
+        name={actionModal.name}
+        profitStr={actionModal.profitStr}
+        roi={actionModal.roi}
+        onClose={() => setActionModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      <AICopilotModal
+        isOpen={isAICopilotOpen}
+        isLoading={isAIAnalyzing}
+        analysis={aiAnalysisResult}
+        error={aiError}
+        onClose={() => setIsAICopilotOpen(false)}
+        onReanalyze={handleRunAIAnalysis}
+      />
+
+      {/* Floating Mobile AI Copilot Shortcut */}
+      <button
+        onClick={() => {
+          playClickSound();
+          setIsAICopilotOpen(true);
+          if (!aiAnalysisResult) handleRunAIAnalysis();
+        }}
+        className="fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-purple-400/40 hover:scale-105 active:scale-95 transition flex items-center gap-2 group btn-interact"
+        title="開啟 AI 戰情操盤顧問"
+      >
+        <Sparkles className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
+        <span className="text-xs font-black tracking-wider hidden sm:inline">AI 戰情顧問</span>
+      </button>
+    </div>
+  );
+}
