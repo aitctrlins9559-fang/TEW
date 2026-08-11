@@ -349,6 +349,37 @@ function generateRuleBasedAnalysis(
   };
 }
 
+// Helper for generating rule-based chat fallback when Gemini API key is unconfigured or rate limited
+function generateRuleBasedChatReply(
+  userMessage: string,
+  portfolio: Array<{ name: string; symbol: string; market: string; shares: number; cost: number; price?: number }> = [],
+  totalValue: number | string = 0,
+  totalProfit: number | string = 0,
+  totalROI: number | string = 0
+) {
+  const msg = userMessage.toLowerCase();
+  const valNum = Number(totalValue) || 0;
+  const profitNum = Number(totalProfit) || 0;
+  const roiNum = typeof totalROI === 'number' ? totalROI : parseFloat(String(totalROI)) || 0;
+
+  const topPos = [...(portfolio || [])].sort((a, b) => b.shares * (b.price || b.cost) - a.shares * (a.price || a.cost))[0];
+  const topName = topPos ? `${topPos.symbol} ${topPos.name}` : '目前持股';
+
+  if (msg.includes('風險') || msg.includes('止損') || msg.includes('停損')) {
+    return `針對您目前的投資組合（總估值約 $${Math.round(valNum).toLocaleString()} TWD，累積報酬率 ${roiNum.toFixed(1)}%）：\n\n1. **最大部位觀測**：您的重倉標的為 **${topName}**，建議關注大盤技術指標（月線與季線支撐）。\n2. **風控策略**：若單一持股未實現虧損超過 15%，可考慮設好分批停損或轉換至防禦性個股。\n3. **資金管理**：保持 15%~20% 現金儲備，以應對美股與台股大盤的高位震盪。`;
+  }
+
+  if (msg.includes('股息') || msg.includes('殖利率') || msg.includes('被動收入')) {
+    return `關聯您的持股股息規劃：\n\n1. **台股高股息**：台股 ETF (如 0050、0056 等) 提供穩定現金流，建議除息前檢視填息歷史紀錄。\n2. **美股股息**：美股標的除息時會有 30% 預扣稅，建議計算稅後實際殖利率。\n3. **再投資策略**：將發放之股息持續投入具成長潛力之標的，發揮複利效應！`;
+  }
+
+  if (msg.includes('台積電') || msg.includes('2330') || msg.includes('tsm')) {
+    return `針對 **台積電 (2330/TSM)** 與半導體板塊分析：\n\n- **基本面**：AI 晶片與先進製程產能滿載，長線產業壁壘極強。\n- **短線觀測**：密切追蹤美股 NVDA/TSM ADR 走勢與外資期貨空單變化。\n- **操盤建議**：長線投資人可視拉回至季線附近分批逢低佈局，短線不盲目追高。`;
+  }
+
+  return `您好！我是您的 AI 戰情投資顧問。根據您當前的資產組合（總市值 $${Math.round(valNum).toLocaleString()} TWD，報酬率 ${roiNum.toFixed(1)}%）：\n\n- **持股現況**：您目前佈局了 ${portfolio.length} 檔標的，重倉核心為 **${topName}**。\n- **市場策略**：當前台美股均處於多空交會點，建議依循「汰弱留強、分批佈局」法則。\n\n請問您對哪一檔個股（例如台積電、美股科技股）或哪種操盤策略需要更深入的解析？`;
+}
+
 // 7. Gemini AI Portfolio Copilot Endpoint
 app.post('/api/ai-analysis', async (req, res) => {
   const { portfolio = [], totalValue = 0, totalProfit = 0, totalROI = 0, indices = [] } = req.body;
@@ -414,6 +445,65 @@ app.post('/api/ai-analysis', async (req, res) => {
     res.json({
       success: true,
       analysis: generateRuleBasedAnalysis(portfolio, totalValue, totalProfit, totalROI),
+    });
+  }
+});
+
+// 8. Gemini AI Real-time Live Q&A Chat Endpoint
+app.post('/api/ai-chat', async (req, res) => {
+  const { message = '', history = [], portfolio = [], totalValue = 0, totalProfit = 0, totalROI = 0, indices = [] } = req.body;
+
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        success: true,
+        reply: generateRuleBasedChatReply(message, portfolio, totalValue, totalProfit, totalROI),
+      });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const contextPrompt = `你是一位講求數據、嚴守風控且極具親和力的資深台美股首席投資顧問。
+目前用戶的資產庫狀況如下：
+- 總估值: $${totalValue} TWD
+- 累積損益: $${totalProfit} TWD (${totalROI}%)
+- 持股明細: ${JSON.stringify(portfolio)}
+- 大盤指數: ${JSON.stringify(indices)}
+
+【對話歷史】:
+${JSON.stringify(history)}
+
+【用戶最新的問題/指示】:
+${message}
+
+請以繁體中文回答用戶的問題，給予精準、有建設性且條理分明的操盤建議與市場解讀。請使用清晰的 Markdown 格式 (列表與粗體) 呈現。`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: contextPrompt,
+      config: {
+        systemInstruction: '你是一位精通台股與美股的資深操盤手顧問，請提供即時專業、條理分明且客觀的回答。',
+      },
+    });
+
+    const reply = response.text || '非常抱歉，目前暫時無法回應您的問題，請稍後再試。';
+
+    res.json({
+      success: true,
+      reply,
+    });
+  } catch (error) {
+    res.json({
+      success: true,
+      reply: generateRuleBasedChatReply(message, portfolio, totalValue, totalProfit, totalROI),
     });
   }
 });

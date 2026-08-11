@@ -384,3 +384,66 @@ export async function apiRunAIAnalysis(
     timestamp: new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }),
   };
 }
+
+// 8. Gemini AI Interactive Chat Q&A
+export async function apiRunAIChat(
+  payload: {
+    message: string;
+    history?: Array<{ role: 'user' | 'model'; content: string }>;
+    portfolio?: unknown;
+    totalValue?: number;
+    totalProfit?: number;
+    totalROI?: number;
+    indices?: unknown;
+  },
+  clientApiKey?: string
+) {
+  try {
+    const res = await fetchWithTimeout('/api/ai-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }, 15000);
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.reply) {
+        return json.reply;
+      }
+    }
+  } catch {
+    // Ignore error and fall through to client side / fallback
+  }
+
+  const apiKey = clientApiKey || localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    return `針對您提出的問題：「${payload.message}」，根據您當前的資產組合，建議密切追蹤市場輪動與重倉股支撐力道，並維持良好資金比例與防禦心態。`;
+  }
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = `你是一位講求數據、嚴守風控且極具親和力的資深台美股首席投資顧問。
+用戶當前資產概況：
+- 總估值: $${payload.totalValue || 0} TWD
+- 累積損益: $${payload.totalProfit || 0} TWD (${payload.totalROI || 0}%)
+- 持股明細: ${JSON.stringify(payload.portfolio || [])}
+
+【問題】:
+${payload.message}
+
+請以繁體中文給予具體、條理分明的操盤建議與市場解讀 (可用 Markdown 條列)。`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: prompt,
+      config: {
+        systemInstruction: '你是一位精通台股與美股的資深操盤手顧問。',
+      },
+    });
+
+    return response.text || '無回應';
+  } catch {
+    return `目前連線繁忙，建議您檢視持股部位並設好止盈止損點，以維持整體投資組合防禦力。`;
+  }
+}
+

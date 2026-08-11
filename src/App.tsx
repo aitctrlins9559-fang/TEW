@@ -1243,6 +1243,11 @@ export default function App() {
         isLoading={isAIAnalyzing}
         analysis={aiAnalysisResult}
         error={aiError}
+        portfolio={portfolio}
+        totalValue={Math.round(totalValTWD)}
+        totalProfit={Math.round(totalProfitTWD || 0)}
+        totalROI={Number((totalROI || 0).toFixed(2))}
+        indices={indices}
         onClose={() => setIsAICopilotOpen(false)}
         onReanalyze={handleRunAIAnalysis}
       />
