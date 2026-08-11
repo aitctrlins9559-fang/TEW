@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="glass-card flex flex-col gap-3.5 p-3.5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative z-40 overflow-visible">
+    <header className="glass-card flex flex-col gap-3.5 p-3.5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative z-50 overflow-visible">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-white/5 pb-3.5">
         <div className="w-full lg:w-auto">
           <div className="flex items-center justify-between lg:justify-start gap-3">

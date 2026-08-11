@@ -953,7 +953,7 @@ export default function App() {
         />
 
         {/* Quick View Jump Navigation Bar (Sticky Top) */}
-        <div className="sticky top-2 z-40 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-xl border border-sky-500/20 rounded-2xl p-2.5 px-4 shadow-2xl text-xs">
+        <div className="sticky top-2 z-30 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-xl border border-sky-500/20 rounded-2xl p-2.5 px-4 shadow-2xl text-xs">
           <div className="flex items-center gap-2 text-slate-200 font-bold">
             <SlidersHorizontal className="w-4 h-4 text-sky-400" />
             <span>版面視圖快捷跳轉</span>
