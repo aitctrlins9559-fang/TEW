@@ -1,5 +1,21 @@
-import React from 'react';
-import { PieChart, Download, Upload, Box, Plus, History, Edit3, Trash2, Calendar, Sparkles, BarChart2 } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import {
+  PieChart,
+  Download,
+  Upload,
+  Box,
+  Plus,
+  History,
+  Edit3,
+  Trash2,
+  Calendar,
+  Sparkles,
+  BarChart2,
+  Search,
+  SlidersHorizontal,
+  ChevronDown,
+  Globe,
+} from 'lucide-react';
 import { StockPosition } from '../types';
 import { formatMoney } from '../utils/format';
 import { playClickSound } from '../utils/audio';
@@ -38,67 +54,293 @@ export const StockTable: React.FC<StockTableProps> = ({
   onExportData,
   onImportData,
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'tw' | 'us' | 'profit' | 'loss'>('all');
+  const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
+  const dataMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dataMenuRef.current && !dataMenuRef.current.contains(e.target as Node)) {
+        setIsDataMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const getUpColor = () => (isRedUp ? 'text-rose-400' : 'text-emerald-400');
   const getDownColor = () => (isRedUp ? 'text-emerald-400' : 'text-rose-400');
+
+  // Filtered portfolio list
+  const filteredPortfolio = useMemo(() => {
+    return portfolio.filter((item) => {
+      // 1. Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchSymbol = item.symbol.toLowerCase().includes(q);
+        if (!matchName && !matchSymbol) return false;
+      }
+
+      // 2. Filter Tab
+      const isUS = item.market === 'us';
+      const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
+      const marketFx = isUS ? usdTwdRate : 1;
+      const safePrice = typeof item.price === 'number' && item.price > 0 ? item.price : null;
+      const itemCostTWD = item.shares * item.cost * buyFx;
+      const itemMarketValTWD = safePrice === null ? null : item.shares * safePrice * marketFx;
+      const itemProfitTWD = itemMarketValTWD === null ? null : itemMarketValTWD - itemCostTWD;
+
+      if (filterTab === 'tw' && isUS) return false;
+      if (filterTab === 'us' && !isUS) return false;
+      if (filterTab === 'profit' && (itemProfitTWD === null || itemProfitTWD < 0)) return false;
+      if (filterTab === 'loss' && (itemProfitTWD === null || itemProfitTWD >= 0)) return false;
+
+      return true;
+    });
+  }, [portfolio, searchQuery, filterTab, usdTwdRate]);
+
+  // Counts for tabs
+  const counts = useMemo(() => {
+    let tw = 0;
+    let us = 0;
+    let profit = 0;
+    let loss = 0;
+
+    portfolio.forEach((item) => {
+      const isUS = item.market === 'us';
+      if (isUS) us++;
+      else tw++;
+
+      const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
+      const marketFx = isUS ? usdTwdRate : 1;
+      const safePrice = typeof item.price === 'number' && item.price > 0 ? item.price : null;
+      const itemCostTWD = item.shares * item.cost * buyFx;
+      const itemMarketValTWD = safePrice === null ? null : item.shares * safePrice * marketFx;
+      const itemProfitTWD = itemMarketValTWD === null ? null : itemMarketValTWD - itemCostTWD;
+
+      if (itemProfitTWD !== null && itemProfitTWD >= 0) profit++;
+      else if (itemProfitTWD !== null && itemProfitTWD < 0) loss++;
+    });
+
+    return { all: portfolio.length, tw, us, profit, loss };
+  }, [portfolio, usdTwdRate]);
 
   return (
     <div className="glass-card p-0 rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl space-y-0">
       {/* Table Header Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-5 md:p-6 border-b border-white/5 gap-4">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2.5 tracking-wide">
-          <PieChart className="w-5 h-5 text-sky-400" /> 部位明細
-          <span className="bg-sky-500/10 text-sky-400 text-xs px-2.5 py-0.5 rounded-full font-mono tabular-nums border border-sky-500/20">
-            {portfolio.length}
-          </span>
-        </h2>
+      <div className="p-5 md:p-6 border-b border-white/5 space-y-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2.5 tracking-wide">
+            <PieChart className="w-5 h-5 text-sky-400" /> 持股部位明細
+            <span className="bg-sky-500/10 text-sky-400 text-xs px-2.5 py-0.5 rounded-full font-mono tabular-nums border border-sky-500/20">
+              {filteredPortfolio.length} / {portfolio.length}
+            </span>
+          </h2>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          <button
-            onClick={() => {
-              playClickSound();
-              onOpenAddModal();
-            }}
-            className="flex-1 md:flex-none text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold px-3.5 py-2.5 md:py-2 rounded-xl transition flex items-center justify-center gap-1.5 btn-interact shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-          >
-            <Plus className="w-4 h-4" /> 新增部位
-          </button>
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Primary Action: Add Position */}
+            <button
+              onClick={() => {
+                playClickSound();
+                onOpenAddModal();
+              }}
+              className="flex-1 md:flex-none text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 md:py-2 rounded-xl transition flex items-center justify-center gap-1.5 btn-interact shadow-[0_0_12px_rgba(16,185,129,0.3)]"
+            >
+              <Plus className="w-4 h-4" /> 新增持股
+            </button>
 
-          <button
-            onClick={onExportData}
-            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-            title="匯出持股備份檔 (JSON)"
-          >
-            <Download className="w-4 h-4 text-sky-400" /> 匯出
-          </button>
+            {/* Data Management Dropdown */}
+            <div className="relative" ref={dataMenuRef}>
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setIsDataMenuOpen((prev) => !prev);
+                }}
+                className={`text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 px-3.5 py-2.5 md:py-2 rounded-xl transition flex items-center gap-1.5 btn-interact ${
+                  isDataMenuOpen ? 'border-sky-400 bg-slate-700 text-white' : ''
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+                <span>資料管理</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isDataMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-          <button
-            onClick={onImportData}
-            className="text-xs bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10 px-3 py-2 rounded-xl transition flex items-center gap-1.5 btn-interact"
-            title="從 JSON 還原持股資料"
-          >
-            <Upload className="w-4 h-4 text-indigo-400" /> 還原
-          </button>
+              {isDataMenuOpen && (
+                <div className="absolute right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-scaleUp space-y-1">
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setIsDataMenuOpen(false);
+                      onExportData();
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-xs text-slate-200 transition"
+                  >
+                    <Download className="w-4 h-4 text-sky-400" />
+                    <span>匯出持股備份檔 (JSON)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      playClickSound();
+                      setIsDataMenuOpen(false);
+                      onImportData();
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-xs text-slate-200 transition"
+                  >
+                    <Upload className="w-4 h-4 text-indigo-400" />
+                    <span>還原 JSON 備份檔</span>
+                  </button>
+
+                  {onPublishToGlobal && (
+                    <button
+                      onClick={() => {
+                        playClickSound();
+                        setIsDataMenuOpen(false);
+                        onPublishToGlobal();
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-xl hover:bg-white/5 text-xs text-emerald-400 transition"
+                    >
+                      <Globe className="w-4 h-4 text-emerald-400" />
+                      <span>發佈至全域雲端</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Search & Filter Toolbar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+          {/* Market / Profit Filter Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-950/60 rounded-xl border border-white/5">
+            <button
+              onClick={() => {
+                playClickSound();
+                setFilterTab('all');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                filterTab === 'all'
+                  ? 'bg-sky-500 text-slate-950 shadow-[0_0_10px_rgba(56,189,248,0.3)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              全部 ({counts.all})
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setFilterTab('tw');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                filterTab === 'tw'
+                  ? 'bg-sky-500 text-slate-950 shadow-[0_0_10px_rgba(56,189,248,0.3)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              台股 ({counts.tw})
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setFilterTab('us');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                filterTab === 'us'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              美股 ({counts.us})
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setFilterTab('profit');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                filterTab === 'profit'
+                  ? 'bg-rose-500 text-slate-950 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              📈 獲利 ({counts.profit})
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setFilterTab('loss');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                filterTab === 'loss'
+                  ? 'bg-emerald-500 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              📉 虧損 ({counts.loss})
+            </button>
+          </div>
+
+          {/* Search Box Input */}
+          <div className="relative min-w-[220px]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜尋標的名稱或代號..."
+              className="w-full bg-slate-950/80 border border-white/10 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {portfolio.length === 0 ? (
+      {filteredPortfolio.length === 0 ? (
         <div className="text-center py-16 px-4">
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center border border-white/5 shadow-inner">
               <Box className="w-8 h-8 text-slate-500" />
             </div>
             <div className="text-slate-400 text-sm font-medium tracking-wide">
-              目前空空如也，尚未建立任何監控部位
+              {searchQuery || filterTab !== 'all'
+                ? '沒有符合篩選條件的部位，嘗試清除搜尋條件'
+                : '目前空空如也，尚未建立任何監控部位'}
             </div>
-            <button
-              onClick={() => {
-                playClickSound();
-                onOpenAddModal();
-              }}
-              className="mt-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-            >
-              <Plus className="w-4 h-4" /> 新增第一筆持股部位
-            </button>
+            {searchQuery || filterTab !== 'all' ? (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterTab('all');
+                }}
+                className="mt-2 bg-slate-800 text-slate-200 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition border border-white/10"
+              >
+                重置篩選
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  playClickSound();
+                  onOpenAddModal();
+                }}
+                className="mt-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 px-5 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+              >
+                <Plus className="w-4 h-4" /> 新增第一筆持股部位
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -107,7 +349,7 @@ export const StockTable: React.FC<StockTableProps> = ({
           {/* MOBILE VIEW: Touch-optimized Responsive Cards (lg:hidden) */}
           {/* ========================================================= */}
           <div className="block lg:hidden divide-y divide-white/5 p-3 space-y-3">
-            {portfolio.map((item) => {
+            {filteredPortfolio.map((item) => {
               const isUS = item.market === 'us';
               const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
               const marketFx = isUS ? usdTwdRate : 1;
@@ -248,7 +490,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {portfolio.map((item) => {
+                {filteredPortfolio.map((item) => {
                   const isUS = item.market === 'us';
                   const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
                   const marketFx = isUS ? usdTwdRate : 1;
