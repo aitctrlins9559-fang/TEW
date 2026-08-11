@@ -17,6 +17,7 @@ import { StockPosition, ChartTarget, MarketType, IntradayData } from '../../type
 import { playClickSound } from '../../utils/audio';
 import { apiFetchChartData, apiSearchStock } from '../../utils/apiClient';
 import { searchLocalDictionary, lookupStockInfo } from '../../data/stockDictionary';
+import { getMarketStatusInfo } from '../../utils/marketHelper';
 
 ChartJS.register(
   CategoryScale,
@@ -203,6 +204,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         const totalVolume = meta.regularMarketVolume || meta.volume || 0;
         const estimatedVolume = totalVolume > 0 ? Math.round(totalVolume * 1.15) : 0;
 
+        const lastTs = meta.regularMarketTime || (ts.length > 0 ? ts[ts.length - 1] : undefined);
+        const marketStatus = getMarketStatusInfo(target.market, target.symbol, lastTs);
+
         setIntradayData({
           symbol: target.symbol,
           market: target.market,
@@ -220,6 +224,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
           rangePct,
           labels: fullLabels,
           prices: fullPrices as number[],
+          tradingDateStr: marketStatus.tradingDateStr,
+          isMarketOpen: marketStatus.isMarketOpen,
+          marketStatusText: marketStatus.statusText,
         });
       } catch (err) {
         setErrorMsg((err as Error).message);
@@ -561,12 +568,21 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
 
           <div className="flex items-center gap-4 self-end md:self-auto">
             <div className="text-right">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-end gap-1 mb-0.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                即時盤中現價 (Live Price)
+              <div className="text-[11px] font-bold uppercase tracking-wider flex items-center justify-end gap-1 mb-0.5">
+                {intradayData.isMarketOpen ? (
+                  <span className="text-emerald-400 flex items-center gap-1 font-mono">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    {intradayData.tradingDateStr} 盤中即時現價
+                  </span>
+                ) : (
+                  <span className="text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
+                    <span>🌙</span>
+                    <span>{intradayData.tradingDateStr || '近期'} 收盤價</span>
+                  </span>
+                )}
               </div>
               <div
                 className={`text-3xl md:text-4xl font-black font-mono tracking-tight tabular-nums ${
@@ -703,7 +719,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         <span>標的: {intradayData ? `${intradayData.name} (${intradayData.symbol})` : '--'}</span>
         <span>
           {intradayData
-            ? `當前盤中價: $${intradayData.latestPrice.toFixed(2)} ${
+            ? `${intradayData.isMarketOpen ? '當前盤中價' : `${intradayData.tradingDateStr || ''} 收盤價`}: $${intradayData.latestPrice.toFixed(2)} ${
                 intradayData.market === 'us' ? 'USD' : 'NT$'
               }`
             : '請選擇監控標的'}

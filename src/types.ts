@@ -67,6 +67,9 @@ export interface IntradayData {
   labels: string[];
   prices: number[];
   volumes?: number[];
+  tradingDateStr?: string;
+  isMarketOpen?: boolean;
+  marketStatusText?: string;
 }
 
 export interface ApiStatusItem {

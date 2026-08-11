@@ -39,6 +39,7 @@ import { Chart } from 'react-chartjs-2';
 import { StockPosition, ChartTarget, MarketType, IntradayData } from '../../types';
 import { playClickSound } from '../../utils/audio';
 import { apiFetchChartData, apiSearchStock } from '../../utils/apiClient';
+import { getMarketStatusInfo } from '../../utils/marketHelper';
 
 ChartJS.register(
   CategoryScale,
@@ -301,6 +302,9 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
         const rangeSpan = highPrice - lowPrice;
         const rangePct = rangeSpan > 0 ? ((latestPrice - lowPrice) / rangeSpan) * 100 : 50;
 
+        const lastTs = meta.regularMarketTime || (ts.length > 0 ? ts[ts.length - 1] : undefined);
+        const marketStatus = getMarketStatusInfo(target.market, target.symbol, lastTs);
+
         setIntradayData({
           symbol: target.symbol,
           market: target.market,
@@ -319,6 +323,9 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
           labels: fullLabels,
           prices: fullPrices as number[],
           volumes: fullVolumes,
+          tradingDateStr: marketStatus.tradingDateStr,
+          isMarketOpen: marketStatus.isMarketOpen,
+          marketStatusText: marketStatus.statusText,
         });
       } catch (err) {
         setErrorMsg((err as Error).message);
@@ -651,6 +658,27 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-300 shrink-0">
                 {selectedChartTarget.market === 'us' ? '美股' : selectedChartTarget.market === 'otc' ? '上櫃' : '上市'}
               </span>
+              {intradayData && (
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded border font-mono flex items-center gap-1 shrink-0 ${
+                    intradayData.isMarketOpen
+                      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  {intradayData.isMarketOpen ? (
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      盤中交易中
+                    </>
+                  ) : (
+                    <>
+                      <span>🌙</span>
+                      <span>{intradayData.tradingDateStr || ''} 收盤價</span>
+                    </>
+                  )}
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-400 flex items-center gap-1">
               <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
@@ -702,36 +730,54 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
           {/* ESSENTIAL CORE BANNER: Price + Volume + Key Action Status */}
           <div className="bg-slate-900/90 p-3 sm:p-4 rounded-2xl border border-sky-500/20 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             {/* Left: Latest Price & Change */}
-            <div className="flex items-baseline gap-3 flex-wrap">
-              <span
-                className={`text-3xl sm:text-4xl font-black font-mono tracking-tight tabular-nums ${
-                  isUp
-                    ? isRedUp
-                      ? 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                      : 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                    : isRedUp
-                    ? 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                    : 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                }`}
-              >
-                ${intradayData.latestPrice.toFixed(2)}
-              </span>
-              <span
-                className={`text-sm sm:text-base font-mono font-bold flex items-center gap-1 ${
-                  isUp
-                    ? isRedUp
-                      ? 'text-rose-400'
-                      : 'text-emerald-400'
-                    : isRedUp
-                    ? 'text-emerald-400'
-                    : 'text-rose-400'
-                }`}
-              >
-                {isUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                {isUp ? '+' : ''}
-                {diff.toFixed(2)} ({isUp ? '+' : ''}
-                {diffPct.toFixed(2)}%)
-              </span>
+            <div className="flex flex-col gap-1">
+              <div className="text-[11px] font-bold font-mono">
+                {intradayData.isMarketOpen ? (
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    {intradayData.tradingDateStr} 盤中即時現價
+                  </span>
+                ) : (
+                  <span className="text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                    <span>🌙</span>
+                    <span>{intradayData.tradingDateStr || '近期'} 收盤價</span>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-baseline gap-3 flex-wrap">
+                <span
+                  className={`text-3xl sm:text-4xl font-black font-mono tracking-tight tabular-nums ${
+                    isUp
+                      ? isRedUp
+                        ? 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                        : 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                      : isRedUp
+                      ? 'text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                      : 'text-rose-400 drop-shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                  }`}
+                >
+                  ${intradayData.latestPrice.toFixed(2)}
+                </span>
+                <span
+                  className={`text-sm sm:text-base font-mono font-bold flex items-center gap-1 ${
+                    isUp
+                      ? isRedUp
+                        ? 'text-rose-400'
+                        : 'text-emerald-400'
+                      : isRedUp
+                      ? 'text-emerald-400'
+                      : 'text-rose-400'
+                  }`}
+                >
+                  {isUp ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                  {isUp ? '+' : ''}
+                  {diff.toFixed(2)} ({isUp ? '+' : ''}
+                  {diffPct.toFixed(2)}%)
+                </span>
+              </div>
             </div>
 
             {/* Center: Essential Volume & Intraday VWAP Highlight Cards */}
