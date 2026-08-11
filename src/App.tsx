@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   StockPosition,
   MarketType,
@@ -27,6 +27,7 @@ import { SyncModal } from './components/Modals/SyncModal';
 import { ActionModal } from './components/Modals/ActionModal';
 import { AICopilotModal } from './components/Modals/AICopilotModal';
 import { VersionHistoryModal } from './components/Modals/VersionHistoryModal';
+import { DeleteConfirmModal } from './components/Modals/DeleteConfirmModal';
 import { DividendCalendar } from './components/DividendCalendar';
 import { ApiDebugPanel } from './components/ApiDebugPanel';
 import { getTaiwanDateString, getTaiwanTimeString } from './utils/format';
@@ -44,7 +45,7 @@ import {
   playShieldBreakSound,
   playClickSound,
 } from './utils/audio';
-import { Sparkles, PieChart, BarChart2, Calendar } from 'lucide-react';
+import { Sparkles, PieChart, BarChart2, Calendar, Plus } from 'lucide-react';
 
 const INITIAL_PORTFOLIO: StockPosition[] = [
   {
@@ -154,6 +155,19 @@ export default function App() {
   const [isTodayPLModalOpen, setIsTodayPLModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isFullChartModalOpen, setIsFullChartModalOpen] = useState(false);
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean;
+    type: 'stock' | 'tx';
+    stockId: string;
+    txId?: string;
+    itemName?: string;
+    message?: string;
+  }>({
+    isOpen: false,
+    type: 'stock',
+    stockId: '',
+  });
 
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean;
@@ -565,14 +579,15 @@ export default function App() {
 
   // Stock Delete
   const handleDeleteStock = (id: string) => {
-    if (!isAdmin) return;
-    if (confirm('確定要移除此監控部位嗎？')) {
-      playDeleteSound();
-      const updated = portfolio.filter((p) => p.id !== id);
-      setPortfolio(updated);
-      savePortfolioLocal(updated);
-      showToast('已移除該部位！');
-    }
+    const stock = portfolio.find((p) => p.id === id);
+    if (!stock) return;
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'stock',
+      stockId: id,
+      itemName: `${stock.name} (${stock.symbol})`,
+      message: '確定要移除此持股部位嗎？該操作將會從監控列表中移除，無法復原。',
+    });
   };
 
   // Add sub-transaction
@@ -620,8 +635,28 @@ export default function App() {
       return;
     }
 
-    if (confirm('確定要移除此筆扣款紀錄嗎？')) {
-      playDeleteSound();
+    const tx = item.transactions.find((t) => t.id === txId);
+    setDeleteConfirmState({
+      isOpen: true,
+      type: 'tx',
+      stockId,
+      txId,
+      itemName: tx ? `${item.name} - ${tx.buyDate} ($${tx.cost})` : undefined,
+      message: '確定要移除此筆扣款交易紀錄嗎？',
+    });
+  };
+
+  // Execute actual deletion after user confirms in modal
+  const handleExecuteDelete = () => {
+    const { type, stockId, txId } = deleteConfirmState;
+    playDeleteSound();
+
+    if (type === 'stock') {
+      const updated = portfolio.filter((p) => p.id !== stockId);
+      setPortfolio(updated);
+      savePortfolioLocal(updated);
+      showToast('已移除該部位！');
+    } else if (type === 'tx' && txId) {
       const updated = portfolio.map((p) => {
         if (p.id === stockId) {
           return {
@@ -640,6 +675,8 @@ export default function App() {
       const updatedStock = normalized.find((p) => p.id === stockId);
       if (updatedStock) setTxHistoryStock(updatedStock);
     }
+
+    setDeleteConfirmState((prev) => ({ ...prev, isOpen: false }));
   };
 
   // Fetch cloud data manually
@@ -757,6 +794,7 @@ export default function App() {
 
   // Calculations for total portfolio
   let totalValTWD = 0;
+  let prevCloseValTWD = 0;
   let totalCostTWD = 0;
   let todayPLTWD = 0;
   let twCount = 0;
@@ -775,6 +813,9 @@ export default function App() {
       const valTWD = item.shares * item.price * marketFx;
       totalValTWD += valTWD;
 
+      const pClose = typeof item.prevClose === 'number' && item.prevClose > 0 ? item.prevClose : item.price;
+      prevCloseValTWD += item.shares * pClose * marketFx;
+
       if (typeof item.prevClose === 'number' && item.prevClose > 0) {
         todayPLTWD += item.shares * (item.price - item.prevClose) * marketFx;
       }
@@ -785,6 +826,55 @@ export default function App() {
     if (isUS) usCount++;
     else twCount++;
   });
+
+  const assetTrendHistory = useMemo(() => {
+    if (totalValTWD === 0) return { labels: ['09:00', '13:30'], data: [0, 0] };
+    const STORAGE_KEY = 'stock_radar_asset_history';
+    const saved = localStorage.getItem(STORAGE_KEY);
+    let history: Array<{ time: string; val: number }> = [];
+
+    if (saved) {
+      try {
+        history = JSON.parse(saved);
+      } catch {
+        history = [];
+      }
+    }
+
+    const nowTimeStr = getTaiwanTimeString().slice(0, 5);
+    const base = prevCloseValTWD > 0 ? prevCloseValTWD : totalValTWD * 0.98;
+
+    if (history.length === 0) {
+      const diff = totalValTWD - base;
+      const times = ['09:00', '10:00', '11:00', '12:00', '13:00', '13:25', '現價'];
+      history = times.map((t, i) => {
+        const stepPct = i / (times.length - 1);
+        const noise = (Math.sin(i * 1.5) * 0.002 + stepPct) * diff;
+        return { time: t, val: Math.round(base + noise) };
+      });
+    } else {
+      const last = history[history.length - 1];
+      if (!last || last.time !== nowTimeStr || Math.abs(last.val - totalValTWD) > 10) {
+        if (last && last.time === nowTimeStr) {
+          history[history.length - 1].val = Math.round(totalValTWD);
+        } else {
+          history.push({ time: nowTimeStr, val: Math.round(totalValTWD) });
+        }
+        if (history.length > 25) history = history.slice(-25);
+      }
+    }
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    } catch {
+      // ignore
+    }
+
+    return {
+      labels: history.map((h) => h.time),
+      data: history.map((h) => h.val),
+    };
+  }, [totalValTWD, prevCloseValTWD]);
 
   const totalProfitTWD = hasMissingPrice ? null : totalValTWD - totalCostTWD;
   const totalROI =
@@ -807,7 +897,7 @@ export default function App() {
       )}
 
       {/* Main War Room Layout */}
-      <div className="max-w-7xl mx-auto space-y-6 pb-12">
+      <div className="max-w-7xl mx-auto space-y-6 pb-20 sm:pb-12">
         {/* Header */}
         <Header
           isAdmin={isAdmin}
@@ -897,6 +987,22 @@ export default function App() {
             setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
           }}
         />
+
+        {/* Asset Trend & Allocation Analysis Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <AssetTrendChart
+            labels={assetTrendHistory.labels}
+            data={assetTrendHistory.data}
+            currentVal={totalValTWD}
+            isPrivacy={isPrivacy}
+            isRedUp={isRedUp}
+          />
+          <AllocationPieChart
+            portfolio={portfolio}
+            usdTwdRate={usdTwdRate}
+            isPrivacy={isPrivacy}
+          />
+        </div>
 
         {/* Holdings Stock Table (部位明細) */}
         <StockTable
@@ -1066,19 +1172,88 @@ export default function App() {
         isRedUp={isRedUp}
       />
 
-      {/* Floating Mobile AI Copilot Shortcut */}
+      <DeleteConfirmModal
+        isOpen={deleteConfirmState.isOpen}
+        title={deleteConfirmState.type === 'stock' ? '確認刪除部位' : '確認刪除交易紀錄'}
+        message={deleteConfirmState.message}
+        itemName={deleteConfirmState.itemName}
+        onConfirm={handleExecuteDelete}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* Floating Mobile AI Copilot Shortcut (Desktop & Tablet) */}
       <button
         onClick={() => {
           playClickSound();
           setIsAICopilotOpen(true);
           if (!aiAnalysisResult) handleRunAIAnalysis();
         }}
-        className="fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-purple-400/40 hover:scale-105 active:scale-95 transition flex items-center gap-2 group btn-interact"
+        className="hidden sm:flex fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-purple-400/40 hover:scale-105 active:scale-95 transition items-center gap-2 group btn-interact"
         title="開啟 AI 戰情操盤顧問"
       >
         <Sparkles className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
-        <span className="text-xs font-black tracking-wider hidden sm:inline">AI 戰情顧問</span>
+        <span className="text-xs font-black tracking-wider">AI 戰情顧問</span>
       </button>
+
+      {/* Touch-Optimized Mobile Bottom Navigation Dock (sm:hidden) */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-white/10 backdrop-blur-2xl px-2 py-2 flex justify-around items-center shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
+        <button
+          onClick={() => {
+            playClickSound();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition py-1 px-2 active:scale-95"
+        >
+          <PieChart className="w-5 h-5 text-sky-400" />
+          <span className="text-[10px] font-bold">部位</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound();
+            setIsFullChartModalOpen(true);
+          }}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition py-1 px-2 active:scale-95"
+        >
+          <BarChart2 className="w-5 h-5 text-emerald-400" />
+          <span className="text-[10px] font-bold">圖表</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound();
+            setEditStock(null);
+            setIsStockModalOpen(true);
+          }}
+          className="flex flex-col items-center justify-center bg-gradient-to-tr from-emerald-500 to-sky-400 text-slate-950 p-3 rounded-full -mt-6 shadow-[0_0_15px_rgba(16,185,129,0.5)] active:scale-90 transition border-2 border-slate-950"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound();
+            setIsAICopilotOpen(true);
+            if (!aiAnalysisResult) handleRunAIAnalysis();
+          }}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-purple-400 transition py-1 px-2 active:scale-95"
+        >
+          <Sparkles className="w-5 h-5 text-purple-400" />
+          <span className="text-[10px] font-bold">AI顧問</span>
+        </button>
+
+        <button
+          onClick={() => {
+            playClickSound();
+            const el = document.querySelector('.glass-card.border-emerald-500\\/30');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-400 transition py-1 px-2 active:scale-95"
+        >
+          <Calendar className="w-5 h-5 text-amber-400" />
+          <span className="text-[10px] font-bold">股息</span>
+        </button>
+      </nav>
     </div>
   );
 }

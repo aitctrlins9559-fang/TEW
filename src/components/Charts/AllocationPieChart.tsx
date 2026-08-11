@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, ArcElement, DoughnutController, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import { PieChart, ShieldCheck, LayoutGrid, List } from 'lucide-react';
 import { StockPosition } from '../../types';
 import { playClickSound } from '../../utils/audio';
 
-ChartJS.register(ArcElement, Tooltip, Legend);
+ChartJS.register(ArcElement, DoughnutController, Tooltip, Legend);
 
 interface AllocationPieChartProps {
   portfolio: StockPosition[];

@@ -196,14 +196,14 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Control Buttons */}
-      <div className="flex flex-wrap items-center gap-2.5 justify-start">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 justify-start">
         {/* Auto refresh button */}
         <button
           onClick={() => {
             playClickSound();
             onToggleAutoRefresh();
           }}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact ${
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact ${
             isAutoRefreshOn
               ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20'
               : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border border-white/5'
@@ -223,7 +223,7 @@ export const Header: React.FC<HeaderProps> = ({
             playClickSound();
             onManualRefresh();
           }}
-          className="bg-slate-800/80 hover:bg-slate-700 text-white border border-white/5 px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact"
+          className="min-h-[40px] bg-slate-800/80 hover:bg-slate-700 text-white border border-white/5 px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact"
         >
           <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isFetchingPrices ? 'animate-spin' : ''}`} />
           <span>手動刷新</span>
@@ -235,7 +235,7 @@ export const Header: React.FC<HeaderProps> = ({
             playClickSound();
             onOpenAICopilot();
           }}
-          className="bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-300 border border-purple-500/40 hover:from-purple-600/50 hover:to-indigo-600/50 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 btn-interact shadow-[0_0_15px_rgba(168,85,247,0.25)]"
+          className="min-h-[40px] bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-300 border border-purple-500/40 hover:from-purple-600/50 hover:to-indigo-600/50 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 btn-interact shadow-[0_0_15px_rgba(168,85,247,0.25)]"
         >
           <Sparkles className="w-4 h-4 text-purple-400 animate-spin" style={{ animationDuration: '4s' }} />
           <span>AI 戰情顧問</span>
@@ -251,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
               onOpenSyncModal();
             }
           }}
-          className={`px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact ${
+          className={`min-h-[40px] px-3 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 btn-interact ${
             isAdmin
               ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.1)]'
               : 'bg-slate-800/80 text-slate-400 border border-white/5 hover:bg-slate-700'
@@ -269,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
             playClickSound();
             onToggleTheme();
           }}
-          className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/5 px-3 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 btn-interact"
+          className="min-h-[40px] bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/5 px-3 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 btn-interact"
           title="切換紅漲綠跌 / 綠漲紅跌"
         >
           <Palette className="w-4 h-4 text-emerald-400" />
@@ -281,7 +281,7 @@ export const Header: React.FC<HeaderProps> = ({
             playClickSound();
             onTogglePrivacy();
           }}
-          className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/5 px-3 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 btn-interact"
+          className="min-h-[40px] bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/5 px-3 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 btn-interact"
           title="隱私遮蔽模式"
         >
           {isPrivacy ? (
@@ -297,7 +297,7 @@ export const Header: React.FC<HeaderProps> = ({
             playClickSound();
             onOpenAddModal();
           }}
-          className="bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.3)] ml-auto"
+          className="min-h-[40px] w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-slate-900 px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 btn-interact shadow-[0_0_15px_rgba(16,185,129,0.3)] sm:ml-auto"
           title="新增持股部位"
         >
           <Plus className="w-4 h-4" />

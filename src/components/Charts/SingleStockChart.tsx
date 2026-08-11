@@ -147,7 +147,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
   const fetchIntradayData = useCallback(
     async (target: ChartTarget) => {
       if (!target.symbol) return;
-      setLoading(true);
+      if (!intradayData || intradayData.symbol !== target.symbol) {
+        setLoading(true);
+      }
       setErrorMsg(null);
 
       try {

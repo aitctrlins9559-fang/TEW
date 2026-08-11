@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Download, Upload, Box, Plus, History, Edit3, Trash2, Calendar, Sparkles } from 'lucide-react';
+import { PieChart, Download, Upload, Box, Plus, History, Edit3, Trash2, Calendar, Sparkles, BarChart2 } from 'lucide-react';
 import { StockPosition } from '../types';
 import { formatMoney } from '../utils/format';
 import { playClickSound } from '../utils/audio';
@@ -134,20 +134,23 @@ export const StockTable: React.FC<StockTableProps> = ({
                   <div className="flex justify-between items-start border-b border-white/5 pb-3">
                     <div
                       onClick={() => onSelectChartTarget(item.symbol, item.market, item.name)}
-                      className="cursor-pointer group"
+                      className="cursor-pointer group flex-1 mr-2"
+                      title="點擊檢視即時分時走勢圖"
                     >
                       <div className="text-base font-bold text-white group-hover:text-sky-400 transition flex items-center gap-2">
-                        {item.name}
+                        <span>{item.name}</span>
                         <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 border border-white/10 text-slate-300">
                           {item.market.toUpperCase()}
                         </span>
+                        <BarChart2 className="w-3.5 h-3.5 text-sky-400 opacity-80 group-hover:scale-110 transition" />
                       </div>
-                      <div className="text-xs font-mono text-sky-400 mt-0.5">
-                        {item.symbol}
+                      <div className="text-xs font-mono text-sky-400 mt-0.5 flex items-center gap-1">
+                        <span>{item.symbol}</span>
+                        <span className="text-[10px] text-slate-400 font-sans">(點擊看走勢)</span>
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-base font-black font-mono text-slate-100">
                         {safePrice === null ? '--' : `$${safePrice} ${isUS ? 'USD' : ''}`}
                       </div>
