@@ -398,11 +398,16 @@ export async function apiRunAIChat(
   },
   clientApiKey?: string
 ) {
+  const apiKeyToUse = clientApiKey || localStorage.getItem('gemini_api_key') || '';
+
   try {
     const res = await fetchWithTimeout('/api/ai-chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        customApiKey: apiKeyToUse,
+      }),
     }, 15000);
 
     if (res.ok) {

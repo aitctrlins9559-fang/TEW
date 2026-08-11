@@ -15,6 +15,10 @@ import {
   FileText,
   User,
   Bot,
+  Key,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { AIAnalysisResult, StockPosition, MarketIndex } from '../../types';
 import { playClickSound } from '../../utils/audio';
@@ -62,13 +66,31 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
     {
       id: 'welcome-1',
       sender: 'ai',
-      text: '您好！我是您的 Gemini AI 戰情操盤顧問。我可以針對您目前的持股組合、台美股個股走勢、避險防禦策略或股息再投資進行即時分析解答。請問今天想了解什麼呢？',
+      text: '您好！我是您的 Gemini AI 戰情操盤顧問。我可以針對您目前的持股組合、台美股個股走勢、避險防禦策略或股息再投資進行即時分析解答。請問今天想了解什麼呢？\n\n💡 提示：在外行動裝置若無綁定 API 金鑰，系統預設已具備完整風控建議；您亦可點擊上方「🔑 API 設定」貼上免費 Google Gemini API Key 啟用無限次高智能即時對答！',
       time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
   const [inputMsg, setInputMsg] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Custom Google Gemini API Key State for Free Users & Mobile Users
+  const [customApiKey, setCustomApiKey] = useState<string>(() => localStorage.getItem('gemini_api_key') || '');
+  const [showApiKeyConfig, setShowApiKeyConfig] = useState<boolean>(false);
+  const [keySaved, setKeySaved] = useState<boolean>(false);
+
   const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const handleSaveApiKey = (key: string) => {
+    const trimmed = key.trim();
+    setCustomApiKey(trimmed);
+    if (trimmed) {
+      localStorage.setItem('gemini_api_key', trimmed);
+    } else {
+      localStorage.removeItem('gemini_api_key');
+    }
+    setKeySaved(true);
+    setTimeout(() => setKeySaved(false), 2000);
+  };
 
   useEffect(() => {
     if (activeTab === 'chat') {
@@ -122,18 +144,21 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
     setIsSending(true);
 
     try {
-      const reply = await apiRunAIChat({
-        message: text,
-        history: chatMessages.map((m) => ({
-          role: m.sender === 'user' ? 'user' : 'model',
-          content: m.text,
-        })),
-        portfolio,
-        totalValue,
-        totalProfit,
-        totalROI,
-        indices,
-      });
+      const reply = await apiRunAIChat(
+        {
+          message: text,
+          history: chatMessages.map((m) => ({
+            role: m.sender === 'user' ? 'user' : 'model',
+            content: m.text,
+          })),
+          portfolio,
+          totalValue,
+          totalProfit,
+          totalROI,
+          indices,
+        },
+        customApiKey
+      );
 
       const aiMsgObj: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -366,6 +391,76 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
         {/* Tab 2: Interactive Real-time Q&A Chat */}
         {activeTab === 'chat' && (
           <div className="flex flex-col space-y-3 min-h-[360px] max-h-[500px]">
+            {/* API Key Mode Header Bar (Mobile Friendly Free API Key Option) */}
+            <div className="bg-slate-950/80 p-2.5 rounded-2xl border border-white/10 text-xs shrink-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-slate-300">
+                  <Key className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="font-semibold">連線模式:</span>
+                  <span className={`font-mono text-[11px] px-2 py-0.5 rounded-full border ${
+                    customApiKey ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                  }`}>
+                    {customApiKey ? '已綁定自備 Google API Key (個人額度)' : '預設伺服器代理 / 智庫代理模式'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setShowApiKeyConfig(!showApiKeyConfig);
+                  }}
+                  className="text-[11px] text-purple-300 hover:text-purple-200 font-bold flex items-center gap-1 bg-purple-950/60 hover:bg-purple-900/80 px-2.5 py-1 rounded-xl border border-purple-500/30 transition btn-interact"
+                >
+                  ⚙️ API Key 設定 {showApiKeyConfig ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              {/* Expandable API Key Drawer */}
+              {showApiKeyConfig && (
+                <div className="p-3 bg-slate-900/90 rounded-xl border border-purple-500/30 space-y-2.5 animate-in fade-in duration-200">
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    💡 在外行動裝置若遇伺服器網路壅塞或免費次數上限，可貼上個人免費 Google Gemini API 金鑰。金鑰僅儲存於您本地瀏覽器 (localStorage)。
+                  </p>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      placeholder="貼上您的 Google Gemini API Key (AIzaSy...)"
+                      className="flex-1 bg-slate-950 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-purple-400"
+                    />
+                    <button
+                      onClick={() => handleSaveApiKey(customApiKey)}
+                      className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shrink-0 flex items-center gap-1"
+                    >
+                      {keySaved ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : '儲存金鑰'}
+                    </button>
+                    {customApiKey && (
+                      <button
+                        onClick={() => handleSaveApiKey('')}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2.5 py-1.5 rounded-xl text-xs transition shrink-0"
+                      >
+                        重置
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1 border-t border-white/5">
+                    <span>還沒有 Gemini API Key？完全免費 1 秒申請：</span>
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-purple-300 hover:text-purple-200 font-bold underline flex items-center gap-1"
+                    >
+                      免費領取 Google API Key <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Quick Prompts */}
             <div className="flex flex-wrap gap-1.5 pb-2 border-b border-white/5 shrink-0">
               {quickPrompts.map((qp, idx) => (

@@ -451,10 +451,10 @@ app.post('/api/ai-analysis', async (req, res) => {
 
 // 8. Gemini AI Real-time Live Q&A Chat Endpoint
 app.post('/api/ai-chat', async (req, res) => {
-  const { message = '', history = [], portfolio = [], totalValue = 0, totalProfit = 0, totalROI = 0, indices = [] } = req.body;
+  const { message = '', history = [], portfolio = [], totalValue = 0, totalProfit = 0, totalROI = 0, indices = [], customApiKey = '' } = req.body;
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.json({
         success: true,
