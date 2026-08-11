@@ -629,7 +629,7 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/98 text-slate-100 flex flex-col justify-between overflow-y-auto animate-fadeIn p-3 sm:p-5">
+    <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100 flex flex-col overflow-y-auto animate-fadeIn p-3 sm:p-5 h-[100dvh]">
       {/* Top Professional Control Header Bar */}
       <div className="flex items-center justify-between border-b border-white/10 pb-3 gap-2 shrink-0">
         <div className="flex items-center gap-2 overflow-hidden">
@@ -858,9 +858,9 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
       )}
 
       {/* Chart Canvas Section */}
-      <div className="flex-1 min-h-[320px] sm:min-h-[420px] relative w-full bg-slate-900/40 p-3 sm:p-4 rounded-3xl border border-white/10 my-1 flex flex-col justify-center">
+      <div className="shrink-0 my-2 w-full bg-slate-900/40 p-3 sm:p-4 rounded-3xl border border-white/10 relative flex flex-col justify-center min-h-[350px]">
         {/* Intraday Technical Overlay Toggles */}
-        <div className="absolute top-3 right-4 z-10 flex items-center gap-2 flex-wrap">
+        <div className="sm:absolute sm:top-3 sm:right-4 z-10 flex items-center gap-2 flex-wrap mb-2 sm:mb-0">
           <button
             onClick={() => {
               playClickSound();
@@ -919,7 +919,7 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
             {errorMsg}
           </div>
         ) : chartData ? (
-          <div className="h-full w-full min-h-[300px]">
+          <div className="w-full h-[320px] sm:h-[420px] md:h-[480px] relative pt-2">
             <Chart type="line" data={chartData} options={options} />
           </div>
         ) : null}
