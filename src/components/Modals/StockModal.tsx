@@ -150,8 +150,17 @@ export const StockModal: React.FC<StockModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto border border-white/10">
+    <div
+      onClick={() => {
+        playClickSound();
+        onClose();
+      }}
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card rounded-t-[2rem] sm:rounded-3xl p-5 md:p-8 w-full max-w-lg shadow-2xl space-y-5 max-h-[88vh] overflow-y-auto border border-white/10"
+      >
         <div className="flex justify-between items-center border-b border-white/5 pb-4">
           <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400 flex items-center gap-2.5">
             <PlusCircle className="w-5 h-5 text-sky-400" />

@@ -31,8 +31,17 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-5 border border-indigo-500/30">
+    <div
+      onClick={() => {
+        playClickSound();
+        onClose();
+      }}
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card rounded-t-[2rem] sm:rounded-3xl p-5 md:p-8 w-full max-w-lg shadow-2xl space-y-5 border border-indigo-500/30"
+      >
         <div className="flex justify-between items-center border-b border-white/10 pb-4">
           <div className="flex items-center gap-2.5">
             <CloudCog className="w-6 h-6 text-indigo-400" />

@@ -49,8 +49,17 @@ export const TodayPLModal: React.FC<TodayPLModalProps> = ({
     .sort((a, b) => b.dayPL - a.dayPL);
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[68] flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-6 md:p-8 w-full max-w-xl shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto border border-white/10">
+    <div
+      onClick={() => {
+        playClickSound();
+        onClose();
+      }}
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[68] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card rounded-t-[2rem] sm:rounded-3xl p-5 md:p-8 w-full max-w-xl shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto border border-white/10"
+      >
         <div className="flex justify-between items-center border-b border-white/5 pb-4">
           <div>
             <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">

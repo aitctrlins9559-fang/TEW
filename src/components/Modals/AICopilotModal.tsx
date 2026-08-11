@@ -189,10 +189,22 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="glass-card rounded-t-3xl sm:rounded-3xl p-5 md:p-8 w-full max-w-2xl shadow-[0_0_50px_rgba(168,85,247,0.25)] space-y-4 max-h-[92vh] sm:max-h-[88vh] overflow-y-auto border border-purple-500/30 animate-in slide-in-from-bottom duration-300 flex flex-col">
-        {/* Mobile Pull Indicator */}
-        <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto sm:hidden mb-1 shrink-0" />
+    <div
+      onClick={() => {
+        playClickSound();
+        onClose();
+      }}
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card rounded-t-[2rem] sm:rounded-3xl p-5 md:p-8 w-full max-w-2xl shadow-[0_0_50px_rgba(168,85,247,0.25)] space-y-4 max-h-[88vh] sm:max-h-[88vh] overflow-y-auto border border-purple-500/30 animate-in slide-in-from-bottom duration-300 flex flex-col"
+      >
+        {/* Mobile Pull/Dismiss Indicator */}
+        <div className="flex flex-col items-center gap-1 sm:hidden pb-1 shrink-0">
+          <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+          <span className="text-[10px] text-slate-400">點擊上方空白處可快速關閉</span>
+        </div>
 
         {/* Modal Header */}
         <div className="flex justify-between items-start border-b border-white/10 pb-3 shrink-0">

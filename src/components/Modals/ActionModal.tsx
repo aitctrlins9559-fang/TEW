@@ -73,8 +73,17 @@ export const ActionModal: React.FC<ActionModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-      <div className="glass-card rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center border border-white/10">
+    <div
+      onClick={() => {
+        playClickSound();
+        onClose();
+      }}
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4 transition-all duration-300"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center border border-white/10"
+      >
         <div
           className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-6 shadow-inner border ${theme.bg} ${
             isMVP ? 'animate-bounce' : 'animate-pulse'
