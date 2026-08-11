@@ -952,8 +952,8 @@ export default function App() {
           onToggleAdmin={handleToggleAdmin}
         />
 
-        {/* Quick View Jump Navigation Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2.5 px-4 shadow-xl text-xs">
+        {/* Quick View Jump Navigation Bar (Sticky Top) */}
+        <div className="sticky top-2 z-40 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-xl border border-sky-500/20 rounded-2xl p-2.5 px-4 shadow-2xl text-xs">
           <div className="flex items-center gap-2 text-slate-200 font-bold">
             <SlidersHorizontal className="w-4 h-4 text-sky-400" />
             <span>版面視圖快捷跳轉</span>
@@ -965,7 +965,7 @@ export default function App() {
                 playClickSound();
                 document.getElementById('section-indices')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 text-slate-200 hover:text-sky-300 hover:border-sky-500/40 flex items-center gap-1.5 btn-interact"
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-sky-500/20 text-slate-200 hover:text-sky-300 hover:border-sky-500/40 flex items-center gap-1.5 btn-interact"
             >
               <Activity className="w-3.5 h-3.5 text-sky-400" />
               <span>大盤戰情</span>
@@ -976,7 +976,7 @@ export default function App() {
                 playClickSound();
                 document.getElementById('section-performance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 hover:border-amber-500/40 flex items-center gap-1.5 btn-interact"
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 hover:border-amber-500/40 flex items-center gap-1.5 btn-interact"
             >
               <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
               <span>領頭與風控</span>
@@ -987,7 +987,7 @@ export default function App() {
                 playClickSound();
                 document.getElementById('section-assethub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 hover:border-indigo-500/40 flex items-center gap-1.5 btn-interact"
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 hover:border-indigo-500/40 flex items-center gap-1.5 btn-interact"
             >
               <PieChart className="w-3.5 h-3.5 text-indigo-400" />
               <span>全資產樞紐</span>
@@ -998,7 +998,7 @@ export default function App() {
                 playClickSound();
                 document.getElementById('section-portfolio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 hover:border-emerald-500/40 flex items-center gap-1.5 btn-interact"
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 hover:border-emerald-500/40 flex items-center gap-1.5 btn-interact"
             >
               <BarChart2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>持股明細</span>
@@ -1009,7 +1009,7 @@ export default function App() {
                 playClickSound();
                 document.getElementById('section-dividends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-rose-500/20 text-slate-200 hover:text-rose-300 hover:border-rose-500/40 flex items-center gap-1.5 btn-interact"
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-rose-500/20 text-slate-200 hover:text-rose-300 hover:border-rose-500/40 flex items-center gap-1.5 btn-interact"
             >
               <Calendar className="w-3.5 h-3.5 text-rose-400" />
               <span>預估股息</span>
@@ -1021,7 +1021,7 @@ export default function App() {
         <div className="space-y-6">
           {(activeMobileTab === 'all' || activeMobileTab === 'overview') && (
             <>
-              <div id="section-indices">
+              <div id="section-indices" className="scroll-mt-20">
                 <MarketIndices
                   indices={indices}
                   twiiChangePct={twiiChangePct}
@@ -1050,7 +1050,7 @@ export default function App() {
                 onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
               />
 
-              <div id="section-performance">
+              <div id="section-performance" className="scroll-mt-20">
                 <PerformanceBanners
                   portfolio={portfolio}
                   usdTwdRate={usdTwdRate}
@@ -1066,7 +1066,7 @@ export default function App() {
           )}
 
           {(activeMobileTab === 'all' || activeMobileTab === 'charts') && (
-            <div id="section-assethub">
+            <div id="section-assethub" className="scroll-mt-20">
               <IntegratedAssetHub
                 labels={assetTrendHistory.labels}
                 data={assetTrendHistory.data}
@@ -1080,7 +1080,7 @@ export default function App() {
           )}
 
           {(activeMobileTab === 'all' || activeMobileTab === 'portfolio') && (
-            <div id="section-portfolio">
+            <div id="section-portfolio" className="scroll-mt-20">
               <StockTable
                 portfolio={portfolio}
                 usdTwdRate={usdTwdRate}
@@ -1167,7 +1167,7 @@ export default function App() {
           {activeMobileTab === 'all' && (
             <>
               <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
-              <div id="section-dividends">
+              <div id="section-dividends" className="scroll-mt-20">
                 <DividendCalendar
                   portfolio={portfolio}
                   usdTwdRate={usdTwdRate}
