@@ -814,24 +814,23 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
               <span className="text-[10px] text-slate-400 block">盤中振幅 (Amplitude)</span>
               <strong className="text-amber-400">{intradayData.amplitudePct.toFixed(2)}%</strong>
             </div>
-            {intradayData.market !== 'us' ? (
-              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/5">
-                <span className="text-[10px] text-slate-400 block">試算漲停價 (+10%)</span>
-                <strong className="text-rose-400">${intradayData.limitUpPrice.toFixed(2)}</strong>
-              </div>
-            ) : (
-              <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/5">
-                <span className="text-[10px] text-slate-400 block">距今日高點</span>
-                <strong className="text-rose-300">
-                  -
-                  {(
-                    ((intradayData.highPrice - intradayData.latestPrice) / intradayData.highPrice) *
-                    100
-                  ).toFixed(2)}
-                  %
-                </strong>
-              </div>
-            )}
+            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-white/5">
+              <span className="text-[10px] text-slate-400 block">距今日高點 (From High)</span>
+              <strong className="text-slate-200">
+                {intradayData.highPrice > 0 ? (
+                  <>
+                    -
+                    {(
+                      ((intradayData.highPrice - intradayData.latestPrice) / intradayData.highPrice) *
+                      100
+                    ).toFixed(2)}
+                    %
+                  </>
+                ) : (
+                  '--'
+                )}
+              </strong>
+            </div>
           </div>
 
           {/* Intraday Strength & Position Slider Bar */}

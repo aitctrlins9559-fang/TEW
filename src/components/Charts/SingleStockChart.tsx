@@ -640,16 +640,20 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
               {intradayData.amplitudePct.toFixed(2)}%
             </div>
           </div>
-          <div className="bg-rose-500/5 p-2.5 rounded-xl border border-rose-500/20">
-            <div className="text-rose-400/80 font-medium text-[11px] mb-0.5">漲停參考 (+10%)</div>
-            <div className="text-sm font-bold text-rose-400 font-mono tabular-nums">
-              ${intradayData.limitUpPrice.toFixed(2)}
+          <div className="bg-slate-900/50 p-2.5 rounded-xl border border-white/5">
+            <div className="text-slate-400 font-medium text-[11px] mb-0.5">距當日高點</div>
+            <div className="text-sm font-bold text-slate-200 font-mono tabular-nums">
+              {intradayData.highPrice > 0
+                ? `-${(((intradayData.highPrice - intradayData.latestPrice) / intradayData.highPrice) * 100).toFixed(2)}%`
+                : '--'}
             </div>
           </div>
-          <div className="bg-emerald-500/5 p-2.5 rounded-xl border border-emerald-500/20">
-            <div className="text-emerald-400/80 font-medium text-[11px] mb-0.5">跌停參考 (-10%)</div>
-            <div className="text-sm font-bold text-emerald-400 font-mono tabular-nums">
-              ${intradayData.limitDownPrice.toFixed(2)}
+          <div className="bg-slate-900/50 p-2.5 rounded-xl border border-white/5">
+            <div className="text-slate-400 font-medium text-[11px] mb-0.5">距當日低點</div>
+            <div className="text-sm font-bold text-sky-300 font-mono tabular-nums">
+              {intradayData.lowPrice > 0
+                ? `+${(((intradayData.latestPrice - intradayData.lowPrice) / intradayData.lowPrice) * 100).toFixed(2)}%`
+                : '--'}
             </div>
           </div>
         </div>
