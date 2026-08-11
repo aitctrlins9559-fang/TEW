@@ -16,8 +16,10 @@ import { LunarFortuneCard } from './components/LunarFortuneCard';
 import { PerformanceBanners } from './components/PerformanceBanners';
 import { NewsMarquee } from './components/NewsMarquee';
 import { StockTable } from './components/StockTable';
+import { IntegratedAssetHub } from './components/IntegratedAssetHub';
 import { AssetTrendChart } from './components/Charts/AssetTrendChart';
 import { AllocationPieChart } from './components/Charts/AllocationPieChart';
+import { SlidersHorizontal, Trophy, Activity, TrendingUp } from 'lucide-react';
 import { SingleStockChart } from './components/Charts/SingleStockChart';
 import { FullStockChartModal } from './components/Charts/FullStockChartModal';
 import { StockModal } from './components/Modals/StockModal';
@@ -121,6 +123,11 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [isRedUp, setIsRedUp] = useState(true);
   const [isPrivacy, setIsPrivacy] = useState(false);
+
+  // Layout module section visibility toggles
+  const [showIndices, setShowIndices] = useState(true);
+  const [showBanners, setShowBanners] = useState(true);
+  const [showAssetHub, setShowAssetHub] = useState(true);
 
   // Mobile quick view mode selector ('positions' | 'charts' | 'analytics' | 'all')
   const [activeMobileTab, setActiveMobileTab] = useState<'positions' | 'charts' | 'analytics' | 'all'>('positions');
@@ -944,19 +951,76 @@ export default function App() {
           onToggleAdmin={handleToggleAdmin}
         />
 
+        {/* Dashboard Layout Customizer Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 px-4 shadow-lg text-xs">
+          <div className="flex items-center gap-2 text-slate-300 font-bold">
+            <SlidersHorizontal className="w-4 h-4 text-sky-400" />
+            <span>版面視圖快捷開關</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                playClickSound();
+                setShowIndices(!showIndices);
+              }}
+              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
+                showIndices
+                  ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>大盤戰情</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setShowBanners(!showBanners);
+              }}
+              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
+                showBanners
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>榮譽榜</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                setShowAssetHub(!showAssetHub);
+              }}
+              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
+                showAssetHub
+                  ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
+                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>全資產樞紐</span>
+            </button>
+          </div>
+        </div>
+
         {/* Market Indices Section (大盤戰情室) */}
-        <MarketIndices
-          indices={indices}
-          twiiChangePct={twiiChangePct}
-          portfolioTodayPct={portfolioTodayPct}
-          isRedUp={isRedUp}
-          onSelectIndex={(symbol, market, name) => {
-            setSelectedChartTarget({ symbol, market, name });
-            setIsFullChartModalOpen(true);
-            const chartCard = document.getElementById('singleStockChartCard');
-            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
-        />
+        {showIndices && (
+          <MarketIndices
+            indices={indices}
+            twiiChangePct={twiiChangePct}
+            portfolioTodayPct={portfolioTodayPct}
+            isRedUp={isRedUp}
+            onSelectIndex={(symbol, market, name) => {
+              setSelectedChartTarget({ symbol, market, name });
+              setIsFullChartModalOpen(true);
+              const chartCard = document.getElementById('singleStockChartCard');
+              if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+          />
+        )}
 
         {/* KPI Cards Overview (持股數據總覽) */}
         <KpiCards
@@ -974,36 +1038,35 @@ export default function App() {
         />
 
         {/* Performance MVP & LVP Banners */}
-        <PerformanceBanners
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onTriggerMVP={(name, profitStr, roi) => {
-            playCoinSound();
-            setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
-          }}
-          onTriggerLVP={(name, profitStr, roi) => {
-            playShieldBreakSound();
-            setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
-          }}
-        />
-
-        {/* Asset Trend & Allocation Analysis Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <AssetTrendChart
-            labels={assetTrendHistory.labels}
-            data={assetTrendHistory.data}
-            currentVal={totalValTWD}
-            isPrivacy={isPrivacy}
-            isRedUp={isRedUp}
-          />
-          <AllocationPieChart
+        {showBanners && (
+          <PerformanceBanners
             portfolio={portfolio}
             usdTwdRate={usdTwdRate}
             isPrivacy={isPrivacy}
+            isRedUp={isRedUp}
+            onTriggerMVP={(name, profitStr, roi) => {
+              playCoinSound();
+              setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
+            }}
+            onTriggerLVP={(name, profitStr, roi) => {
+              playShieldBreakSound();
+              setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
+            }}
           />
-        </div>
+        )}
+
+        {/* Asset Trend & Allocation Analysis Hub */}
+        {showAssetHub && (
+          <IntegratedAssetHub
+            labels={assetTrendHistory.labels}
+            data={assetTrendHistory.data}
+            currentVal={totalValTWD}
+            portfolio={portfolio}
+            usdTwdRate={usdTwdRate}
+            isPrivacy={isPrivacy}
+            isRedUp={isRedUp}
+          />
+        )}
 
         {/* Holdings Stock Table (部位明細) */}
         <StockTable

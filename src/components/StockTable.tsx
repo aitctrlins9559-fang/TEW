@@ -55,7 +55,7 @@ export const StockTable: React.FC<StockTableProps> = ({
   onImportData,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'tw' | 'us' | 'profit' | 'loss'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'tw' | 'us'>('all');
   const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
   const dataMenuRef = useRef<HTMLDivElement>(null);
 
@@ -85,47 +85,26 @@ export const StockTable: React.FC<StockTableProps> = ({
 
       // 2. Filter Tab
       const isUS = item.market === 'us';
-      const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
-      const marketFx = isUS ? usdTwdRate : 1;
-      const safePrice = typeof item.price === 'number' && item.price > 0 ? item.price : null;
-      const itemCostTWD = item.shares * item.cost * buyFx;
-      const itemMarketValTWD = safePrice === null ? null : item.shares * safePrice * marketFx;
-      const itemProfitTWD = itemMarketValTWD === null ? null : itemMarketValTWD - itemCostTWD;
-
       if (filterTab === 'tw' && isUS) return false;
       if (filterTab === 'us' && !isUS) return false;
-      if (filterTab === 'profit' && (itemProfitTWD === null || itemProfitTWD < 0)) return false;
-      if (filterTab === 'loss' && (itemProfitTWD === null || itemProfitTWD >= 0)) return false;
 
       return true;
     });
-  }, [portfolio, searchQuery, filterTab, usdTwdRate]);
+  }, [portfolio, searchQuery, filterTab]);
 
   // Counts for tabs
   const counts = useMemo(() => {
     let tw = 0;
     let us = 0;
-    let profit = 0;
-    let loss = 0;
 
     portfolio.forEach((item) => {
       const isUS = item.market === 'us';
       if (isUS) us++;
       else tw++;
-
-      const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
-      const marketFx = isUS ? usdTwdRate : 1;
-      const safePrice = typeof item.price === 'number' && item.price > 0 ? item.price : null;
-      const itemCostTWD = item.shares * item.cost * buyFx;
-      const itemMarketValTWD = safePrice === null ? null : item.shares * safePrice * marketFx;
-      const itemProfitTWD = itemMarketValTWD === null ? null : itemMarketValTWD - itemCostTWD;
-
-      if (itemProfitTWD !== null && itemProfitTWD >= 0) profit++;
-      else if (itemProfitTWD !== null && itemProfitTWD < 0) loss++;
     });
 
-    return { all: portfolio.length, tw, us, profit, loss };
-  }, [portfolio, usdTwdRate]);
+    return { all: portfolio.length, tw, us };
+  }, [portfolio]);
 
   return (
     <div className="glass-card p-0 rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl space-y-0">
@@ -256,34 +235,6 @@ export const StockTable: React.FC<StockTableProps> = ({
               }`}
             >
               美股 ({counts.us})
-            </button>
-
-            <button
-              onClick={() => {
-                playClickSound();
-                setFilterTab('profit');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                filterTab === 'profit'
-                  ? 'bg-rose-500 text-slate-950 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              📈 獲利 ({counts.profit})
-            </button>
-
-            <button
-              onClick={() => {
-                playClickSound();
-                setFilterTab('loss');
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                filterTab === 'loss'
-                  ? 'bg-emerald-500 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              📉 虧損 ({counts.loss})
             </button>
           </div>
 

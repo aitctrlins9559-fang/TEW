@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   return (
-    <header className="glass-card flex flex-col gap-3.5 p-3.5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative">
+    <header className="glass-card flex flex-col gap-3.5 p-3.5 sm:p-6 lg:p-7 rounded-2xl sm:rounded-[2rem] border border-white/10 shadow-2xl relative z-40 overflow-visible">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b border-white/5 pb-3.5">
         <div className="w-full lg:w-auto">
           <div className="flex items-center justify-between lg:justify-start gap-3">
@@ -289,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Dropdown Menu Panel */}
           {isToolsOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-scaleUp space-y-1">
+            <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900/98 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-2 z-[100] animate-scaleUp space-y-1">
               <div className="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
                 顯示與偏好設定
               </div>
