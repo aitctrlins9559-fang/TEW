@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { StockPosition } from '../types';
 import { formatMoney } from '../utils/format';
 
@@ -8,8 +8,7 @@ interface PerformanceBannersProps {
   usdTwdRate: number;
   isPrivacy: boolean;
   isRedUp: boolean;
-  onTriggerMVP: (name: string, profitStr: string, roi: number) => void;
-  onTriggerLVP: (name: string, profitStr: string, roi: number) => void;
+  onSelectStock?: (symbol: string, market: 'tse' | 'otc' | 'us', name: string) => void;
 }
 
 export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
@@ -17,8 +16,7 @@ export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
   usdTwdRate,
   isPrivacy,
   isRedUp,
-  onTriggerMVP,
-  onTriggerLVP,
+  onSelectStock,
 }) => {
   const getUpColor = () => (isRedUp ? 'text-rose-400' : 'text-emerald-400');
   const getDownColor = () => (isRedUp ? 'text-emerald-400' : 'text-rose-400');
@@ -31,7 +29,9 @@ export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
     const roi = costTWD > 0 && profitTWD !== null ? (profitTWD / costTWD) * 100 : null;
 
     return {
-      name: `${item.symbol} ${item.name}`,
+      symbol: item.symbol,
+      name: item.name,
+      market: item.market,
       profit: profitTWD,
       roi,
     };
@@ -50,71 +50,97 @@ export const PerformanceBanners: React.FC<PerformanceBannersProps> = ({
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* MVP Best Performer */}
+      {/* Top Performer */}
       <div
         onClick={() => {
-          if (mvp && mvp.profit !== null && mvp.roi !== null) {
-            const pStr = `+${formatMoney(mvp.profit, isPrivacy)} (+${mvp.roi.toFixed(1)}%)`;
-            onTriggerMVP(mvp.name, pStr, mvp.roi);
+          if (mvp && onSelectStock) {
+            onSelectStock(mvp.symbol, mvp.market, mvp.name);
           }
         }}
-        className={`glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 ${
-          isRedUp ? 'border-l-rose-500/50' : 'border-l-emerald-500/50'
-        } cursor-pointer group`}
+        className={`glass-card p-5 rounded-3xl flex justify-between items-center border-l-4 ${
+          isRedUp ? 'border-l-rose-500/60' : 'border-l-emerald-500/60'
+        } transition-all duration-300 ${
+          mvp && onSelectStock ? 'cursor-pointer hover:border-sky-500/50 hover:bg-slate-800/80' : ''
+        }`}
       >
-        <div>
+        <div className="space-y-1">
           <div
-            className={`text-[10px] font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 transition ${
-              isRedUp
-                ? 'text-rose-400/80 group-hover:text-rose-300'
-                : 'text-emerald-400/80 group-hover:text-emerald-300'
+            className={`text-xs font-bold tracking-wider uppercase flex items-center gap-1.5 ${
+              isRedUp ? 'text-rose-400' : 'text-emerald-400'
             }`}
           >
-            <TrendingUp className="w-3.5 h-3.5" /> 最佳獲利 (點擊解鎖成就)
+            <TrendingUp className="w-4 h-4" /> 績效領頭羊 (Top Performer)
           </div>
-          <div className="text-lg font-black text-white tracking-wide">
-            {mvp ? mvp.name : '無累積獲利標的'}
+          <div className="text-base font-black text-white tracking-wide">
+            {mvp ? `${mvp.symbol} ${mvp.name}` : '目前無獲利標的'}
           </div>
+          {mvp && (
+            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+              <span>貢獻最高未實現正收益</span>
+              <span className="text-sky-400 font-bold">(點擊看詳情)</span>
+            </div>
+          )}
         </div>
-        <div className={`text-xl md:text-2xl font-black font-mono tracking-tighter tabular-nums group-hover:scale-110 transition-transform origin-right ${getUpColor()}`}>
-          {mvp && mvp.profit !== null && mvp.roi !== null
-            ? `+${formatMoney(mvp.profit, isPrivacy)} (+${mvp.roi.toFixed(1)}%)`
-            : '$0 (0%)'}
+        <div className="text-right">
+          <div className={`text-lg md:text-xl font-black font-mono tracking-tight tabular-nums ${getUpColor()}`}>
+            {mvp && mvp.profit !== null && mvp.roi !== null
+              ? `+${formatMoney(mvp.profit, isPrivacy)}`
+              : '$0'}
+          </div>
+          <div className={`text-xs font-mono font-bold ${getUpColor()}`}>
+            {mvp && mvp.roi !== null ? `+${mvp.roi.toFixed(1)}%` : '0%'}
+          </div>
         </div>
       </div>
 
-      {/* LVP Worst Loss */}
+      {/* Risk Alert / Worst Performer */}
       <div
         onClick={() => {
-          if (lvp && lvp.profit !== null && lvp.roi !== null) {
-            const pStr = `${formatMoney(lvp.profit, isPrivacy)} (${lvp.roi.toFixed(1)}%)`;
-            onTriggerLVP(lvp.name, pStr, lvp.roi);
+          if (lvp && onSelectStock) {
+            onSelectStock(lvp.symbol, lvp.market, lvp.name);
           }
         }}
-        className={`glass-card hover-card p-6 rounded-3xl flex justify-between items-center border-l-4 ${
-          isRedUp ? 'border-l-emerald-500/50' : 'border-l-rose-500/50'
-        } cursor-pointer group`}
+        className={`glass-card p-5 rounded-3xl flex justify-between items-center border-l-4 ${
+          isRedUp ? 'border-l-emerald-500/60' : 'border-l-rose-500/60'
+        } transition-all duration-300 ${
+          lvp && onSelectStock ? 'cursor-pointer hover:border-rose-500/50 hover:bg-slate-800/80' : ''
+        }`}
       >
-        <div>
+        <div className="space-y-1">
           <div
-            className={`text-[10px] font-bold tracking-widest uppercase mb-1 flex items-center gap-1.5 transition ${
-              isRedUp
-                ? 'text-emerald-400/80 group-hover:text-emerald-300'
-                : 'text-rose-400/80 group-hover:text-rose-300'
+            className={`text-xs font-bold tracking-wider uppercase flex items-center gap-1.5 ${
+              isRedUp ? 'text-emerald-400' : 'text-rose-400'
             }`}
           >
-            <TrendingDown className="w-3.5 h-3.5" /> 最大虧損 (點擊啟動風控)
+            {lvp ? <AlertTriangle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+            {lvp ? '風險觀察標的 (Risk Highlight)' : '資產健康度優良'}
           </div>
-          <div className="text-lg font-black text-white tracking-wide">
-            {lvp ? lvp.name : '無累積虧損標的'}
+          <div className="text-base font-black text-white tracking-wide">
+            {lvp ? `${lvp.symbol} ${lvp.name}` : '無累積虧損部位'}
           </div>
+          {lvp ? (
+            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+              <span>建議評估止損或佈局調整</span>
+              <span className="text-rose-400 font-bold">(點擊看詳情)</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-emerald-400/80 font-medium">
+              全數持股均處於平盤或盈餘狀態
+            </div>
+          )}
         </div>
-        <div className={`text-xl md:text-2xl font-black font-mono tracking-tighter tabular-nums group-hover:scale-110 transition-transform origin-right ${getDownColor()}`}>
-          {lvp && lvp.profit !== null && lvp.roi !== null
-            ? `${formatMoney(lvp.profit, isPrivacy)} (${lvp.roi.toFixed(1)}%)`
-            : '$0 (0%)'}
+        <div className="text-right">
+          <div className={`text-lg md:text-xl font-black font-mono tracking-tight tabular-nums ${getDownColor()}`}>
+            {lvp && lvp.profit !== null && lvp.roi !== null
+              ? `${formatMoney(lvp.profit, isPrivacy)}`
+              : '$0'}
+          </div>
+          <div className={`text-xs font-mono font-bold ${getDownColor()}`}>
+            {lvp && lvp.roi !== null ? `${lvp.roi.toFixed(1)}%` : '0%'}
+          </div>
         </div>
       </div>
     </div>
   );
 };
+

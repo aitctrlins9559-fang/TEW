@@ -19,7 +19,8 @@ import { StockTable } from './components/StockTable';
 import { IntegratedAssetHub } from './components/IntegratedAssetHub';
 import { AssetTrendChart } from './components/Charts/AssetTrendChart';
 import { AllocationPieChart } from './components/Charts/AllocationPieChart';
-import { SlidersHorizontal, Trophy, Activity, TrendingUp } from 'lucide-react';
+import { SlidersHorizontal, Activity, TrendingUp, Sparkles } from 'lucide-react';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { SingleStockChart } from './components/Charts/SingleStockChart';
 import { FullStockChartModal } from './components/Charts/FullStockChartModal';
 import { StockModal } from './components/Modals/StockModal';
@@ -50,7 +51,7 @@ import {
   playShieldBreakSound,
   playClickSound,
 } from './utils/audio';
-import { Sparkles, PieChart, BarChart2, Calendar, Plus } from 'lucide-react';
+import { PieChart, BarChart2, Calendar, Plus } from 'lucide-react';
 
 const INITIAL_PORTFOLIO: StockPosition[] = [
   {
@@ -124,13 +125,13 @@ export default function App() {
   const [isRedUp, setIsRedUp] = useState(true);
   const [isPrivacy, setIsPrivacy] = useState(false);
 
-  // Layout module section visibility toggles
+  // Layout & View Mode States
   const [showIndices, setShowIndices] = useState(true);
   const [showBanners, setShowBanners] = useState(true);
   const [showAssetHub, setShowAssetHub] = useState(true);
 
-  // Mobile quick view mode selector ('positions' | 'charts' | 'analytics' | 'all')
-  const [activeMobileTab, setActiveMobileTab] = useState<'positions' | 'charts' | 'analytics' | 'all'>('positions');
+  // Mobile quick view mode selector ('all' | 'overview' | 'portfolio' | 'charts' | 'ai')
+  const [activeMobileTab, setActiveMobileTab] = useState<'all' | 'overview' | 'portfolio' | 'charts' | 'ai'>('all');
 
   const [isAutoRefreshOn, setIsAutoRefreshOn] = useState(true);
   const [activeRefreshInterval, setActiveRefreshInterval] = useState(60);
@@ -429,6 +430,41 @@ export default function App() {
       // ignore
     }
   }, []);
+
+  // AI Copilot analysis request
+  const handleRunAIAnalysis = useCallback(async () => {
+    setIsAIAnalyzing(true);
+    setAiError(null);
+
+    let totalValTWD = 0;
+    let totalCostTWD = 0;
+
+    portfolio.forEach((p) => {
+      const fx = p.market === 'us' ? usdTwdRate : 1;
+      const c = p.shares * p.cost * (p.market === 'us' ? p.buyRate : 1);
+      const v = p.price ? p.shares * p.price * fx : c;
+      totalCostTWD += c;
+      totalValTWD += v;
+    });
+
+    const profit = totalValTWD - totalCostTWD;
+    const roi = totalCostTWD > 0 ? (profit / totalCostTWD) * 100 : 0;
+
+    try {
+      const analysis = await apiRunAIAnalysis({
+        portfolio,
+        totalValue: Math.round(totalValTWD),
+        totalProfit: Math.round(profit),
+        totalROI: Number(roi.toFixed(2)),
+        indices,
+      });
+      setAiAnalysisResult(analysis);
+    } catch (err) {
+      setAiError((err as Error).message);
+    } finally {
+      setIsAIAnalyzing(false);
+    }
+  }, [portfolio, usdTwdRate, indices]);
 
   // Initial load
   useEffect(() => {
@@ -765,41 +801,6 @@ export default function App() {
     }
   };
 
-  // AI Copilot analysis request
-  const handleRunAIAnalysis = async () => {
-    setIsAIAnalyzing(true);
-    setAiError(null);
-
-    let totalValTWD = 0;
-    let totalCostTWD = 0;
-
-    portfolio.forEach((p) => {
-      const fx = p.market === 'us' ? usdTwdRate : 1;
-      const c = p.shares * p.cost * (p.market === 'us' ? p.buyRate : 1);
-      const v = p.price ? p.shares * p.price * fx : c;
-      totalCostTWD += c;
-      totalValTWD += v;
-    });
-
-    const profit = totalValTWD - totalCostTWD;
-    const roi = totalCostTWD > 0 ? (profit / totalCostTWD) * 100 : 0;
-
-    try {
-      const analysis = await apiRunAIAnalysis({
-        portfolio,
-        totalValue: Math.round(totalValTWD),
-        totalProfit: Math.round(profit),
-        totalROI: roi.toFixed(2),
-        indices,
-      });
-      setAiAnalysisResult(analysis);
-    } catch (err) {
-      setAiError((err as Error).message);
-    } finally {
-      setIsAIAnalyzing(false);
-    }
-  };
-
   // Calculations for total portfolio
   let totalValTWD = 0;
   let prevCloseValTWD = 0;
@@ -951,216 +952,232 @@ export default function App() {
           onToggleAdmin={handleToggleAdmin}
         />
 
-        {/* Dashboard Layout Customizer Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-2xl p-2.5 px-4 shadow-lg text-xs">
-          <div className="flex items-center gap-2 text-slate-300 font-bold">
+        {/* Quick View Jump Navigation Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2.5 px-4 shadow-xl text-xs">
+          <div className="flex items-center gap-2 text-slate-200 font-bold">
             <SlidersHorizontal className="w-4 h-4 text-sky-400" />
-            <span>版面視圖快捷開關</span>
+            <span>版面視圖快捷跳轉</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto py-1">
             <button
               onClick={() => {
                 playClickSound();
-                setShowIndices(!showIndices);
+                document.getElementById('section-indices')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
-                showIndices
-                  ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
-                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
-              }`}
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-sky-500/20 text-slate-200 hover:text-sky-300 hover:border-sky-500/40 flex items-center gap-1.5 btn-interact"
             >
-              <Activity className="w-3.5 h-3.5" />
+              <Activity className="w-3.5 h-3.5 text-sky-400" />
               <span>大盤戰情</span>
             </button>
 
             <button
               onClick={() => {
                 playClickSound();
-                setShowBanners(!showBanners);
+                document.getElementById('section-performance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
-                showBanners
-                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
-              }`}
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 hover:border-amber-500/40 flex items-center gap-1.5 btn-interact"
             >
-              <Trophy className="w-3.5 h-3.5" />
-              <span>榮譽榜</span>
+              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+              <span>領頭與風控</span>
             </button>
 
             <button
               onClick={() => {
                 playClickSound();
-                setShowAssetHub(!showAssetHub);
+                document.getElementById('section-assethub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className={`px-3 py-1.5 rounded-xl font-bold transition border flex items-center gap-1.5 btn-interact ${
-                showAssetHub
-                  ? 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30'
-                  : 'bg-slate-800/80 text-slate-500 border-white/5 hover:text-slate-300'
-              }`}
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 hover:border-indigo-500/40 flex items-center gap-1.5 btn-interact"
             >
-              <TrendingUp className="w-3.5 h-3.5" />
+              <PieChart className="w-3.5 h-3.5 text-indigo-400" />
               <span>全資產樞紐</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                document.getElementById('section-portfolio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 hover:border-emerald-500/40 flex items-center gap-1.5 btn-interact"
+            >
+              <BarChart2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>持股明細</span>
+            </button>
+
+            <button
+              onClick={() => {
+                playClickSound();
+                document.getElementById('section-dividends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/80 hover:bg-rose-500/20 text-slate-200 hover:text-rose-300 hover:border-rose-500/40 flex items-center gap-1.5 btn-interact"
+            >
+              <Calendar className="w-3.5 h-3.5 text-rose-400" />
+              <span>預估股息</span>
             </button>
           </div>
         </div>
 
-        {/* Market Indices Section (大盤戰情室) */}
-        {showIndices && (
-          <MarketIndices
-            indices={indices}
-            twiiChangePct={twiiChangePct}
-            portfolioTodayPct={portfolioTodayPct}
-            isRedUp={isRedUp}
-            onSelectIndex={(symbol, market, name) => {
-              setSelectedChartTarget({ symbol, market, name });
-              setIsFullChartModalOpen(true);
-              const chartCard = document.getElementById('singleStockChartCard');
-              if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
-          />
-        )}
+        {/* Standard Unified Flow Layout with Mobile Tab Filtering */}
+        <div className="space-y-6">
+          {(activeMobileTab === 'all' || activeMobileTab === 'overview') && (
+            <>
+              <div id="section-indices">
+                <MarketIndices
+                  indices={indices}
+                  twiiChangePct={twiiChangePct}
+                  portfolioTodayPct={portfolioTodayPct}
+                  isRedUp={isRedUp}
+                  onSelectIndex={(symbol, market, name) => {
+                    setSelectedChartTarget({ symbol, market, name });
+                    setIsFullChartModalOpen(true);
+                    const chartCard = document.getElementById('singleStockChartCard');
+                    if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
+                />
+              </div>
 
-        {/* KPI Cards Overview (持股數據總覽) */}
-        <KpiCards
-          totalValue={totalValTWD}
-          totalCost={totalCostTWD}
-          todayPL={todayPLTWD}
-          totalProfit={totalProfitTWD}
-          totalROI={totalROI}
-          totalCount={portfolio.length}
-          twCount={twCount}
-          usCount={usCount}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
-        />
+              <KpiCards
+                totalValue={totalValTWD}
+                totalCost={totalCostTWD}
+                todayPL={todayPLTWD}
+                totalProfit={totalProfitTWD}
+                totalROI={totalROI}
+                totalCount={portfolio.length}
+                twCount={twCount}
+                usCount={usCount}
+                isPrivacy={isPrivacy}
+                isRedUp={isRedUp}
+                onOpenTodayPLModal={() => setIsTodayPLModalOpen(true)}
+              />
 
-        {/* Performance MVP & LVP Banners */}
-        {showBanners && (
-          <PerformanceBanners
-            portfolio={portfolio}
-            usdTwdRate={usdTwdRate}
-            isPrivacy={isPrivacy}
-            isRedUp={isRedUp}
-            onTriggerMVP={(name, profitStr, roi) => {
-              playCoinSound();
-              setActionModal({ isOpen: true, type: 'mvp', name, profitStr, roi });
-            }}
-            onTriggerLVP={(name, profitStr, roi) => {
-              playShieldBreakSound();
-              setActionModal({ isOpen: true, type: 'lvp', name, profitStr, roi });
-            }}
-          />
-        )}
+              <div id="section-performance">
+                <PerformanceBanners
+                  portfolio={portfolio}
+                  usdTwdRate={usdTwdRate}
+                  isPrivacy={isPrivacy}
+                  isRedUp={isRedUp}
+                  onSelectStock={(symbol, market, name) => {
+                    setSelectedChartTarget({ symbol, market, name });
+                    setIsFullChartModalOpen(true);
+                  }}
+                />
+              </div>
+            </>
+          )}
 
-        {/* Asset Trend & Allocation Analysis Hub */}
-        {showAssetHub && (
-          <IntegratedAssetHub
-            labels={assetTrendHistory.labels}
-            data={assetTrendHistory.data}
-            currentVal={totalValTWD}
-            portfolio={portfolio}
-            usdTwdRate={usdTwdRate}
-            isPrivacy={isPrivacy}
-            isRedUp={isRedUp}
-          />
-        )}
+          {(activeMobileTab === 'all' || activeMobileTab === 'charts') && (
+            <div id="section-assethub">
+              <IntegratedAssetHub
+                labels={assetTrendHistory.labels}
+                data={assetTrendHistory.data}
+                currentVal={totalValTWD}
+                portfolio={portfolio}
+                usdTwdRate={usdTwdRate}
+                isPrivacy={isPrivacy}
+                isRedUp={isRedUp}
+              />
+            </div>
+          )}
 
-        {/* Holdings Stock Table (部位明細) */}
-        <StockTable
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isAdmin={isAdmin}
-          isPrivacy={isPrivacy}
-          isRedUp={isRedUp}
-          onSelectChartTarget={(symbol, market, name) => {
-            setSelectedChartTarget({ symbol, market, name });
-            setIsFullChartModalOpen(true);
-            const chartCard = document.getElementById('singleStockChartCard');
-            if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
-          onOpenTxHistory={(stockId) => {
-            const stk = portfolio.find((p) => p.id === stockId);
-            if (stk) {
-              setTxHistoryStock(stk);
-              setIsTxHistoryModalOpen(true);
-            }
-          }}
-          onOpenEditModal={(stockId) => {
-            const stk = portfolio.find((p) => p.id === stockId);
-            if (stk) {
-              setEditStock(stk);
-              setIsStockModalOpen(true);
-            }
-          }}
-          onDeleteStock={handleDeleteStock}
-          onOpenAddModal={() => {
-            setEditStock(null);
-            setIsStockModalOpen(true);
-          }}
-          onToggleAdmin={handleToggleAdmin}
-          onExportData={() => {
-            const jsonStr = JSON.stringify(portfolio, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `StockMonitor_Backup_${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('資料已匯出備份');
-          }}
-          onImportData={() => {
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.json';
-            fileInput.onchange = (e) => {
-              const file = (e.target as HTMLInputElement).files?.[0];
-              if (file) {
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                  try {
-                    const parsed = JSON.parse(evt.target?.result as string);
-                    const normalized = normalizePortfolio(parsed);
-                    setPortfolio(normalized);
-                    savePortfolioLocal(normalized);
-                    showToast('備份資料成功還原！');
-                  } catch {
-                    showToast('JSON 格式錯誤，請檢查檔案', false);
+          {(activeMobileTab === 'all' || activeMobileTab === 'portfolio') && (
+            <div id="section-portfolio">
+              <StockTable
+                portfolio={portfolio}
+                usdTwdRate={usdTwdRate}
+                isAdmin={isAdmin}
+                isPrivacy={isPrivacy}
+                isRedUp={isRedUp}
+                onSelectChartTarget={(symbol, market, name) => {
+                  setSelectedChartTarget({ symbol, market, name });
+                  setIsFullChartModalOpen(true);
+                  const chartCard = document.getElementById('singleStockChartCard');
+                  if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                onOpenTxHistory={(stockId) => {
+                  const stk = portfolio.find((p) => p.id === stockId);
+                  if (stk) {
+                    setTxHistoryStock(stk);
+                    setIsTxHistoryModalOpen(true);
                   }
-                };
-                reader.readAsText(file);
+                }}
+                onOpenEditModal={(stockId) => {
+                  const stk = portfolio.find((p) => p.id === stockId);
+                  if (stk) {
+                    setEditStock(stk);
+                    setIsStockModalOpen(true);
+                  }
+                }}
+                onDeleteStock={handleDeleteStock}
+                onOpenAddModal={() => {
+                  setEditStock(null);
+                  setIsStockModalOpen(true);
+                }}
+                onToggleAdmin={handleToggleAdmin}
+                onExportData={() => {
+                  const jsonStr = JSON.stringify(portfolio, null, 2);
+                  const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `StockMonitor_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  showToast('資料已匯出備份');
+                }}
+                onImportData={() => {
+                  const fileInput = document.createElement('input');
+                  fileInput.type = 'file';
+                  fileInput.accept = '.json';
+                  fileInput.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        try {
+                          const parsed = JSON.parse(evt.target?.result as string);
+                          const normalized = normalizePortfolio(parsed);
+                          setPortfolio(normalized);
+                          savePortfolioLocal(normalized);
+                          showToast('備份資料成功還原！');
+                        } catch {
+                          showToast('JSON 格式錯誤，請檢查檔案', false);
+                        }
+                      };
+                      reader.readAsText(file);
+                    }
+                  };
+                  fileInput.click();
+                }}
+              />
+            </div>
+          )}
+
+          {(activeMobileTab === 'all' || activeMobileTab === 'charts') && (
+            <SingleStockChart
+              portfolio={portfolio}
+              selectedChartTarget={selectedChartTarget}
+              onSelectChartTarget={(symbol, market, name) =>
+                setSelectedChartTarget({ symbol, market, name })
               }
-            };
-            fileInput.click();
-          }}
-        />
+              isRedUp={isRedUp}
+              onOpenFullModal={() => setIsFullChartModalOpen(true)}
+            />
+          )}
 
-        {/* Intraday Single Stock Chart */}
-        <SingleStockChart
-          portfolio={portfolio}
-          selectedChartTarget={selectedChartTarget}
-          onSelectChartTarget={(symbol, market, name) =>
-            setSelectedChartTarget({ symbol, market, name })
-          }
-          isRedUp={isRedUp}
-          onOpenFullModal={() => setIsFullChartModalOpen(true)}
-        />
-
-        {/* Financial News Marquee */}
-        <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
-
-        {/* Dividend Calendar & Passive Income Simulator */}
-        <DividendCalendar
-          portfolio={portfolio}
-          usdTwdRate={usdTwdRate}
-          isPrivacy={isPrivacy}
-        />
-
-        {/* Lunar Fortune & Mindset Card */}
-        <LunarFortuneCard />
+          {activeMobileTab === 'all' && (
+            <>
+              <NewsMarquee news={news} lastNewsTime={lastNewsTime} />
+              <div id="section-dividends">
+                <DividendCalendar
+                  portfolio={portfolio}
+                  usdTwdRate={usdTwdRate}
+                  isPrivacy={isPrivacy}
+                />
+              </div>
+              <LunarFortuneCard />
+            </>
+          )}
+        </div>
       </div>
 
       {/* Modals */}
@@ -1291,78 +1308,35 @@ export default function App() {
         onClose={() => setIsAssetAnalysisModalOpen(false)}
       />
 
-      {/* Floating Mobile AI Copilot Shortcut (Desktop & Tablet) */}
+      {/* Floating AI Copilot Shortcut (Desktop & Tablet) */}
       <button
         onClick={() => {
           playClickSound();
           setIsAICopilotOpen(true);
           if (!aiAnalysisResult) handleRunAIAnalysis();
         }}
-        className="hidden sm:flex fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-purple-400/40 hover:scale-105 active:scale-95 transition items-center gap-2 group btn-interact"
+        className="hidden lg:flex fixed bottom-6 left-6 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-3.5 sm:px-4 sm:py-3 rounded-full shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-purple-400/40 hover:scale-105 active:scale-95 transition items-center gap-2 group btn-interact"
         title="開啟 AI 戰情操盤顧問"
       >
         <Sparkles className="w-5 h-5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
         <span className="text-xs font-black tracking-wider">AI 戰情顧問</span>
       </button>
 
-      {/* Touch-Optimized Mobile Bottom Navigation Dock (sm:hidden) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/95 border-t border-white/10 backdrop-blur-2xl px-2 py-2 flex justify-around items-center shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
-        <button
-          onClick={() => {
-            playClickSound();
-            setIsAssetAnalysisModalOpen(true);
-          }}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition py-1 px-2 active:scale-95"
-        >
-          <PieChart className="w-5 h-5 text-sky-400" />
-          <span className="text-[10px] font-bold">資產分析</span>
-        </button>
-
-        <button
-          onClick={() => {
-            playClickSound();
-            setIsFullChartModalOpen(true);
-          }}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-emerald-400 transition py-1 px-2 active:scale-95"
-        >
-          <BarChart2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-[10px] font-bold">分時圖表</span>
-        </button>
-
-        <button
-          onClick={() => {
-            playClickSound();
-            setEditStock(null);
-            setIsStockModalOpen(true);
-          }}
-          className="flex flex-col items-center justify-center bg-gradient-to-tr from-emerald-500 to-sky-400 text-slate-950 p-3 rounded-full -mt-6 shadow-[0_0_15px_rgba(16,185,129,0.5)] active:scale-90 transition border-2 border-slate-950"
-        >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
-        </button>
-
-        <button
-          onClick={() => {
-            playClickSound();
-            setIsAICopilotOpen(true);
-            if (!aiAnalysisResult) handleRunAIAnalysis();
-          }}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-purple-400 transition py-1 px-2 active:scale-95"
-        >
-          <Sparkles className="w-5 h-5 text-purple-400" />
-          <span className="text-[10px] font-bold">AI顧問</span>
-        </button>
-
-        <button
-          onClick={() => {
-            playClickSound();
-            setIsDividendModalOpen(true);
-          }}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-400 transition py-1 px-2 active:scale-95"
-        >
-          <Calendar className="w-5 h-5 text-amber-400" />
-          <span className="text-[10px] font-bold">股息日曆</span>
-        </button>
-      </nav>
+      {/* Native-Like Mobile Bottom Navigation Bar & Quick Action FAB (Mobile & Tablet) */}
+      <MobileBottomNav
+        activeTab={activeMobileTab}
+        onSelectTab={(tab) => setActiveMobileTab(tab)}
+        onOpenAddModal={() => {
+          setEditStock(null);
+          setIsStockModalOpen(true);
+        }}
+        onOpenAICopilot={() => {
+          setIsAICopilotOpen(true);
+          if (!aiAnalysisResult) handleRunAIAnalysis();
+        }}
+        onManualRefresh={() => fetchRealtimePrices(true)}
+        isFetchingPrices={isFetchingPrices}
+      />
     </div>
   );
 }
