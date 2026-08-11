@@ -28,6 +28,9 @@ import { ActionModal } from './components/Modals/ActionModal';
 import { AICopilotModal } from './components/Modals/AICopilotModal';
 import { VersionHistoryModal } from './components/Modals/VersionHistoryModal';
 import { DeleteConfirmModal } from './components/Modals/DeleteConfirmModal';
+import { AdminPasswordModal } from './components/Modals/AdminPasswordModal';
+import { DividendCalendarModal } from './components/Modals/DividendCalendarModal';
+import { AssetAnalysisModal } from './components/Modals/AssetAnalysisModal';
 import { DividendCalendar } from './components/DividendCalendar';
 import { ApiDebugPanel } from './components/ApiDebugPanel';
 import { getTaiwanDateString, getTaiwanTimeString } from './utils/format';
@@ -155,6 +158,9 @@ export default function App() {
   const [isTodayPLModalOpen, setIsTodayPLModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isFullChartModalOpen, setIsFullChartModalOpen] = useState(false);
+  const [isAdminPasswordModalOpen, setIsAdminPasswordModalOpen] = useState(false);
+  const [isDividendModalOpen, setIsDividendModalOpen] = useState(false);
+  const [isAssetAnalysisModalOpen, setIsAssetAnalysisModalOpen] = useState(false);
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     isOpen: boolean;
@@ -492,12 +498,7 @@ export default function App() {
       setAdminPassword('');
       showToast('已鎖定管理權限');
     } else {
-      const pwd = prompt('請輸入密碼以解鎖編輯與備份功能：');
-      if (pwd) {
-        setIsAdmin(true);
-        setAdminPassword(pwd);
-        showToast('✅ 編輯與備份功能已解鎖');
-      }
+      setIsAdminPasswordModalOpen(true);
     }
   };
 
@@ -1049,18 +1050,28 @@ export default function App() {
             showToast('資料已匯出備份');
           }}
           onImportData={() => {
-            const input = prompt('請貼上備份 JSON 內容：');
-            if (input) {
-              try {
-                const parsed = JSON.parse(input);
-                const normalized = normalizePortfolio(parsed);
-                setPortfolio(normalized);
-                savePortfolioLocal(normalized);
-                showToast('備份資料成功還原！');
-              } catch {
-                showToast('JSON 格式錯誤，請檢查輸入', false);
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json';
+            fileInput.onchange = (e) => {
+              const file = (e.target as HTMLInputElement).files?.[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                  try {
+                    const parsed = JSON.parse(evt.target?.result as string);
+                    const normalized = normalizePortfolio(parsed);
+                    setPortfolio(normalized);
+                    savePortfolioLocal(normalized);
+                    showToast('備份資料成功還原！');
+                  } catch {
+                    showToast('JSON 格式錯誤，請檢查檔案', false);
+                  }
+                };
+                reader.readAsText(file);
               }
-            }
+            };
+            fileInput.click();
           }}
         />
 
@@ -1181,6 +1192,42 @@ export default function App() {
         onClose={() => setDeleteConfirmState((prev) => ({ ...prev, isOpen: false }))}
       />
 
+      <AdminPasswordModal
+        isOpen={isAdminPasswordModalOpen}
+        isAdmin={isAdmin}
+        onUnlock={(pwd) => {
+          setIsAdmin(true);
+          setAdminPassword(pwd);
+          showToast('✅ 編輯與備份功能已解鎖');
+        }}
+        onLock={() => {
+          setIsAdmin(false);
+          setAdminPassword('');
+          showToast('已鎖定管理權限');
+        }}
+        onClose={() => setIsAdminPasswordModalOpen(false)}
+      />
+
+      <DividendCalendarModal
+        isOpen={isDividendModalOpen}
+        portfolio={portfolio}
+        usdTwdRate={usdTwdRate}
+        isPrivacy={isPrivacy}
+        onClose={() => setIsDividendModalOpen(false)}
+      />
+
+      <AssetAnalysisModal
+        isOpen={isAssetAnalysisModalOpen}
+        portfolio={portfolio}
+        usdTwdRate={usdTwdRate}
+        isPrivacy={isPrivacy}
+        isRedUp={isRedUp}
+        labels={assetTrendHistory.labels}
+        data={assetTrendHistory.data}
+        currentVal={totalValTWD}
+        onClose={() => setIsAssetAnalysisModalOpen(false)}
+      />
+
       {/* Floating Mobile AI Copilot Shortcut (Desktop & Tablet) */}
       <button
         onClick={() => {
@@ -1200,12 +1247,12 @@ export default function App() {
         <button
           onClick={() => {
             playClickSound();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setIsAssetAnalysisModalOpen(true);
           }}
           className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition py-1 px-2 active:scale-95"
         >
           <PieChart className="w-5 h-5 text-sky-400" />
-          <span className="text-[10px] font-bold">部位</span>
+          <span className="text-[10px] font-bold">資產分析</span>
         </button>
 
         <button
@@ -1213,10 +1260,10 @@ export default function App() {
             playClickSound();
             setIsFullChartModalOpen(true);
           }}
-          className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition py-1 px-2 active:scale-95"
+          className="flex flex-col items-center gap-1 text-slate-400 hover:text-emerald-400 transition py-1 px-2 active:scale-95"
         >
           <BarChart2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-[10px] font-bold">圖表</span>
+          <span className="text-[10px] font-bold">分時圖表</span>
         </button>
 
         <button
@@ -1245,13 +1292,12 @@ export default function App() {
         <button
           onClick={() => {
             playClickSound();
-            const el = document.querySelector('.glass-card.border-emerald-500\\/30');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
+            setIsDividendModalOpen(true);
           }}
           className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-400 transition py-1 px-2 active:scale-95"
         >
           <Calendar className="w-5 h-5 text-amber-400" />
-          <span className="text-[10px] font-bold">股息</span>
+          <span className="text-[10px] font-bold">股息日曆</span>
         </button>
       </nav>
     </div>

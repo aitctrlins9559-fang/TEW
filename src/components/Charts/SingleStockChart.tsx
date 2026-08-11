@@ -615,9 +615,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         </div>
       )}
 
-      {/* 6 High-Tech Metric Tiles (調優字體大小) */}
+      {/* 4 Core Metric Tiles */}
       {intradayData ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
           <div className="bg-slate-900/50 p-2.5 rounded-xl border border-white/5">
             <div className="text-slate-400 font-medium text-[11px] mb-0.5">昨日收盤</div>
             <div className="text-sm font-bold text-slate-200 font-mono tabular-nums">
@@ -640,22 +640,6 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
             <div className="text-slate-400 font-medium text-[11px] mb-0.5">當日振幅</div>
             <div className="text-sm font-bold text-amber-400 font-mono tabular-nums">
               {intradayData.amplitudePct.toFixed(2)}%
-            </div>
-          </div>
-          <div className="bg-slate-900/50 p-2.5 rounded-xl border border-white/5">
-            <div className="text-slate-400 font-medium text-[11px] mb-0.5">距當日高點</div>
-            <div className="text-sm font-bold text-slate-200 font-mono tabular-nums">
-              {intradayData.highPrice > 0
-                ? `-${(((intradayData.highPrice - intradayData.latestPrice) / intradayData.highPrice) * 100).toFixed(2)}%`
-                : '--'}
-            </div>
-          </div>
-          <div className="bg-slate-900/50 p-2.5 rounded-xl border border-white/5">
-            <div className="text-slate-400 font-medium text-[11px] mb-0.5">距當日低點</div>
-            <div className="text-sm font-bold text-sky-300 font-mono tabular-nums">
-              {intradayData.lowPrice > 0
-                ? `+${(((intradayData.latestPrice - intradayData.lowPrice) / intradayData.lowPrice) * 100).toFixed(2)}%`
-                : '--'}
             </div>
           </div>
         </div>
