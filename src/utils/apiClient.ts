@@ -300,6 +300,10 @@ export async function apiFetchChartData(symbol: string, range = '1d', interval =
         meta: result.meta,
         timestamp: result.timestamp || [],
         quotes: result.indicators?.quote?.[0]?.close || [],
+        volumes: result.indicators?.quote?.[0]?.volume || [],
+        opens: result.indicators?.quote?.[0]?.open || [],
+        highs: result.indicators?.quote?.[0]?.high || [],
+        lows: result.indicators?.quote?.[0]?.low || [],
       };
     }
   } catch {

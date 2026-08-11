@@ -54,15 +54,19 @@ export interface IntradayData {
   market: MarketType;
   name: string;
   prevClose: number;
+  openPrice: number;
   highPrice: number;
   lowPrice: number;
   latestPrice: number;
+  totalVolume: number;
+  estimatedVolume: number;
   limitUpPrice: number;
   limitDownPrice: number;
   amplitudePct: number;
   rangePct: number;
   labels: string[];
   prices: number[];
+  volumes?: number[];
 }
 
 export interface ApiStatusItem {

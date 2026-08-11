@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { BarChart2, Search, Zap, Activity, Loader2 } from 'lucide-react';
+import { BarChart2, Search, Zap, Activity, Loader2, Maximize2 } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -35,6 +35,96 @@ interface SingleStockChartProps {
   selectedChartTarget: ChartTarget;
   onSelectChartTarget: (symbol: string, market: MarketType, name: string) => void;
   isRedUp: boolean;
+  onOpenFullModal?: () => void;
+}
+
+function generateFullTradingSession(
+  market: MarketType,
+  symbol: string,
+  ts: number[],
+  quotes: number[]
+) {
+  const isTW =
+    market === 'tse' ||
+    market === 'otc' ||
+    symbol === '^TWII' ||
+    symbol.endsWith('.TW') ||
+    symbol.endsWith('.TWO');
+  const isUS = market === 'us' || symbol === '^DJI' || symbol === '^GSPC' || symbol === '^IXIC';
+  const isJP = symbol === '^N225';
+  const isKR = symbol === '^KS11';
+
+  let startMins = 9 * 60; // 09:00
+  let endMins = 13 * 60 + 30; // 13:30
+
+  if (isUS) {
+    startMins = 9 * 60 + 30; // 09:30
+    endMins = 16 * 60; // 16:00
+  } else if (isJP) {
+    startMins = 9 * 60; // 09:00
+    endMins = 15 * 60; // 15:00
+  } else if (isKR) {
+    startMins = 9 * 60; // 09:00
+    endMins = 15 * 60 + 30; // 15:30
+  }
+
+  const fullLabels: string[] = [];
+  for (let m = startMins; m <= endMins; m += 5) {
+    const hh = String(Math.floor(m / 60)).padStart(2, '0');
+    const mm = String(m % 60).padStart(2, '0');
+    fullLabels.push(`${hh}:${mm}`);
+  }
+
+  const priceMap = new Map<string, number>();
+  const validPrices: number[] = [];
+
+  ts.forEach((t, i) => {
+    if (typeof quotes[i] === 'number' && quotes[i] > 0) {
+      const d = new Date(t * 1000);
+      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      priceMap.set(hhmm, quotes[i]);
+      validPrices.push(quotes[i]);
+    }
+  });
+
+  if (validPrices.length === 0) {
+    return { fullLabels: [], fullPrices: [], validPrices: [] };
+  }
+
+  let latestAvailableIndex = -1;
+  fullLabels.forEach((label, idx) => {
+    if (priceMap.has(label)) {
+      latestAvailableIndex = idx;
+    }
+  });
+
+  if (latestAvailableIndex === -1) {
+    const fallbackLabels: string[] = [];
+    ts.forEach((t, i) => {
+      if (typeof quotes[i] === 'number' && quotes[i] > 0) {
+        const d = new Date(t * 1000);
+        fallbackLabels.push(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+      }
+    });
+    return { fullLabels: fallbackLabels, fullPrices: validPrices, validPrices };
+  }
+
+  const fullPrices: (number | null)[] = [];
+  let lastVal: number | null = null;
+
+  for (let i = 0; i < fullLabels.length; i++) {
+    const label = fullLabels[i];
+    if (priceMap.has(label)) {
+      lastVal = priceMap.get(label)!;
+      fullPrices.push(lastVal);
+    } else if (i <= latestAvailableIndex) {
+      fullPrices.push(lastVal);
+    } else {
+      fullPrices.push(null);
+    }
+  }
+
+  return { fullLabels, fullPrices, validPrices };
 }
 
 export const SingleStockChart: React.FC<SingleStockChartProps> = ({
@@ -42,6 +132,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
   selectedChartTarget,
   onSelectChartTarget,
   isRedUp,
+  onOpenFullModal,
 }) => {
   const [searchInput, setSearchInput] = useState('');
   const [intradayData, setIntradayData] = useState<IntradayData | null>(null);
@@ -79,33 +170,25 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         const ts: number[] = json.timestamp || [];
         const quotes: number[] = json.quotes || [];
 
-        const labels: string[] = [];
-        const prices: number[] = [];
+        const { fullLabels, fullPrices, validPrices } = generateFullTradingSession(
+          target.market,
+          target.symbol,
+          ts,
+          quotes
+        );
 
-        ts.forEach((t, i) => {
-          if (typeof quotes[i] === 'number' && quotes[i] > 0) {
-            const d = new Date(t * 1000);
-            labels.push(
-              `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-            );
-            prices.push(quotes[i]);
-          }
-        });
-
-        if (prices.length === 0) {
+        if (validPrices.length === 0) {
           throw new Error('暫無盤中分時走勢數據');
         }
 
-        const prevClose = meta.chartPreviousClose || meta.previousClose || prices[0];
-        // 若持股清單內有更即時的 real-time 價位，則以即時現價作為最末點
-        let latestPrice = prices[prices.length - 1];
+        const prevClose = meta.chartPreviousClose || meta.previousClose || validPrices[0];
+        let latestPrice = validPrices[validPrices.length - 1];
         if (matchedPortfolioItem?.price && matchedPortfolioItem.price > 0) {
           latestPrice = matchedPortfolioItem.price;
-          prices[prices.length - 1] = latestPrice;
         }
 
-        const highPrice = Math.max(...prices);
-        const lowPrice = Math.min(...prices);
+        const highPrice = Math.max(...validPrices);
+        const lowPrice = Math.min(...validPrices);
 
         const limitUpPrice = prevClose * 1.1;
         const limitDownPrice = prevClose * 0.9;
@@ -114,20 +197,27 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
         const rangeSpan = highPrice - lowPrice;
         const rangePct = rangeSpan > 0 ? ((latestPrice - lowPrice) / rangeSpan) * 100 : 50;
 
+        const openPrice = meta.regularMarketOpen || meta.open || validPrices[0] || prevClose;
+        const totalVolume = meta.regularMarketVolume || meta.volume || 0;
+        const estimatedVolume = totalVolume > 0 ? Math.round(totalVolume * 1.15) : 0;
+
         setIntradayData({
           symbol: target.symbol,
           market: target.market,
           name: target.name || target.symbol,
           prevClose,
+          openPrice,
           highPrice,
           lowPrice,
           latestPrice,
+          totalVolume,
+          estimatedVolume,
           limitUpPrice,
           limitDownPrice,
           amplitudePct,
           rangePct,
-          labels,
-          prices,
+          labels: fullLabels,
+          prices: fullPrices as number[],
         });
       } catch (err) {
         setErrorMsg((err as Error).message);
@@ -223,6 +313,8 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
     const diff = intradayData.latestPrice - intradayData.prevClose;
     const lineColor = diff >= 0 ? getUpColor() : getDownColor();
 
+    const lastValidIdx = intradayData.prices.findLastIndex((p) => p !== null && p !== undefined);
+
     return {
       labels: intradayData.labels,
       datasets: [
@@ -232,9 +324,9 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
           borderColor: lineColor,
           borderWidth: 2,
           fill: true,
+          spanGaps: false,
           tension: 0.15,
-          pointRadius: (ctx: { dataIndex: number; dataset: { data: number[] } }) =>
-            ctx.dataIndex === ctx.dataset.data.length - 1 ? 5 : 0, // 最末現價點特別亮起
+          pointRadius: (ctx: { dataIndex: number }) => (ctx.dataIndex === lastValidIdx ? 5 : 0),
           pointBackgroundColor: lineColor,
           pointBorderColor: '#ffffff',
           pointBorderWidth: 2,
@@ -337,13 +429,26 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
       className="glass-card p-5 md:p-6 rounded-3xl space-y-5 border border-white/10 shadow-2xl"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4">
-        <div>
+        <div className="flex items-center justify-between w-full sm:w-auto gap-2">
           <h2 className="text-base font-bold text-white flex items-center gap-2 tracking-wide">
             <BarChart2 className="w-4 h-4 text-purple-400" /> 個股即時分時走勢圖
             <span className="text-[10px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
               <Activity className="w-3 h-3 text-emerald-400 animate-pulse" /> 盤中現價同步
             </span>
           </h2>
+          {onOpenFullModal && (
+            <button
+              onClick={() => {
+                playClickSound();
+                onOpenFullModal();
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/30 text-xs font-bold transition shrink-0"
+              title="開啟滿版看盤"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>滿版看盤</span>
+            </button>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 w-full sm:w-auto">

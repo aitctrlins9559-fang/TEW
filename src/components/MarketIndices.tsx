@@ -124,7 +124,7 @@ export const MarketIndices: React.FC<MarketIndicesProps> = ({
           <span className="flex items-center gap-1.5">
             <Sunrise className="w-4 h-4 text-amber-400" /> 亞洲核心指數戰情室
           </span>
-          {twiiChangePct !== null && portfolioTodayPct !== null && (
+          {typeof twiiChangePct === 'number' && typeof portfolioTodayPct === 'number' && (
             <span
               className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-xl border backdrop-blur-md ${
                 beatsMarket

@@ -50,7 +50,93 @@ app.get('/api/fx', async (_req, res) => {
   }
 });
 
-// 2. Real-time Quotes Endpoint
+// 2. Real-time Quotes Endpoint (TWSE MIS Batch + Yahoo Finance Multi-Host Fallback)
+async function fetchYahooChart(sym: string, interval = '1m', range = '1d', timeoutMs = 6000) {
+  const hosts = ['query2.finance.yahoo.com', 'query1.finance.yahoo.com'];
+  for (const host of hosts) {
+    try {
+      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}`;
+      const data = await fetchWithTimeout(url, timeoutMs);
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta && typeof meta.regularMarketPrice === 'number') {
+        return {
+          symbol: sym,
+          regularMarketPrice: meta.regularMarketPrice,
+          regularMarketPreviousClose: meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice,
+          regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
+          regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
+          rawChart: data,
+        };
+      }
+    } catch {
+      // try next host
+    }
+  }
+  return null;
+}
+
+async function fetchTwseBatch(symbols: string[]) {
+  const twItems: { original: string; code: string }[] = [];
+  symbols.forEach((sym) => {
+    const clean = sym.replace(/\.(TW|TWO)$/i, '').trim().toUpperCase();
+    if (/^\d{4,6}[A-Z]?$/i.test(clean)) {
+      twItems.push({ original: sym, code: clean });
+    }
+  });
+
+  if (twItems.length === 0) return [];
+
+  const exChParts: string[] = [];
+  twItems.forEach((item) => {
+    exChParts.push(`tse_${item.code}.tw`);
+    exChParts.push(`otc_${item.code}.tw`);
+  });
+
+  try {
+    const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${encodeURIComponent(exChParts.join('|'))}&_=${Date.now()}`;
+    const data = await fetchWithTimeout(url, 6000);
+    const msgArray = data?.msgArray || [];
+
+    const results: any[] = [];
+    twItems.forEach((item) => {
+      const match = msgArray.find((m: any) => m.c === item.code && (m.z || m.y || m.a || m.b));
+      if (match) {
+        let price = parseFloat(match.z);
+        if (isNaN(price) || price <= 0) {
+          if (match.a && match.a !== '-') price = parseFloat(match.a.split('_')[0]);
+          if ((isNaN(price) || price <= 0) && match.b && match.b !== '-') price = parseFloat(match.b.split('_')[0]);
+          if (isNaN(price) || price <= 0) price = parseFloat(match.y);
+        }
+        const prevClose = parseFloat(match.y) || price;
+        const dayHigh = parseFloat(match.h) || price;
+        const dayLow = parseFloat(match.l) || price;
+
+        if (price > 0) {
+          results.push({
+            symbol: item.original,
+            regularMarketPrice: price,
+            regularMarketPreviousClose: prevClose,
+            regularMarketDayHigh: dayHigh,
+            regularMarketDayLow: dayLow,
+          });
+          if (item.original !== item.code) {
+            results.push({
+              symbol: item.code,
+              regularMarketPrice: price,
+              regularMarketPreviousClose: prevClose,
+              regularMarketDayHigh: dayHigh,
+              regularMarketDayLow: dayLow,
+            });
+          }
+        }
+      }
+    });
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 app.post('/api/quote', async (req, res) => {
   try {
     const { symbols } = req.body as { symbols: string[] };
@@ -58,30 +144,25 @@ app.post('/api/quote', async (req, res) => {
       return res.json({ success: true, results: [] });
     }
 
-    const results = await Promise.all(
-      symbols.map(async (sym) => {
-        try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d`;
-          const data = await fetchWithTimeout(url, 6000);
-          const meta = data?.chart?.result?.[0]?.meta;
-          if (meta && typeof meta.regularMarketPrice === 'number') {
-            return {
-              symbol: sym,
-              regularMarketPrice: meta.regularMarketPrice,
-              regularMarketPreviousClose: meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice,
-              regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-              regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
-            };
-          }
-        } catch {
-          // ignore individual error
-        }
-        return null;
-      })
+    // 1. Try TWSE MIS Batch for Taiwan stocks
+    const twseResults = await fetchTwseBatch(symbols);
+    const foundSyms = new Set(twseResults.map((r) => r.symbol.toUpperCase()));
+
+    // 2. Fetch missing / US stocks from Yahoo Finance
+    const missingSymbols = symbols.filter((sym) => {
+      const upper = sym.toUpperCase();
+      const bare = upper.replace(/\.(TW|TWO)$/i, '');
+      return !foundSyms.has(upper) && !foundSyms.has(bare);
+    });
+
+    const yahooResults = await Promise.all(
+      missingSymbols.map((sym) => fetchYahooChart(sym, '1m', '1d', 6000))
     );
 
-    const validResults = results.filter(Boolean);
-    res.json({ success: true, results: validResults });
+    const validYahoo = yahooResults.filter(Boolean);
+
+    const combinedResults = [...twseResults, ...validYahoo];
+    res.json({ success: true, results: combinedResults });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });
   }
@@ -91,15 +172,39 @@ app.post('/api/quote', async (req, res) => {
 app.get('/api/indices', async (_req, res) => {
   const indexSymbols = ['^TWII', '^N225', '^KS11', '^DJI', '^GSPC', '^IXIC'];
   try {
+    // Try TWSE MIS for ^TWII (tse_t00.tw)
+    let twiiResult: any = null;
+    try {
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&_=${Date.now()}`;
+      const data = await fetchWithTimeout(url, 4000);
+      const match = data?.msgArray?.[0];
+      if (match) {
+        const price = parseFloat(match.z) || parseFloat(match.y);
+        const prevClose = parseFloat(match.y) || price;
+        if (price > 0) {
+          const change = price - prevClose;
+          const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
+          twiiResult = {
+            symbol: '^TWII',
+            price,
+            prevClose,
+            change,
+            changePct,
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const results = await Promise.all(
       indexSymbols.map(async (sym) => {
+        if (sym === '^TWII' && twiiResult) return twiiResult;
         try {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1m&range=1d`;
-          const data = await fetchWithTimeout(url, 5000);
-          const meta = data?.chart?.result?.[0]?.meta;
-          if (meta && typeof meta.regularMarketPrice === 'number') {
-            const price = meta.regularMarketPrice;
-            const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+          const chartData = await fetchYahooChart(sym, '1m', '1d', 5000);
+          if (chartData && typeof chartData.regularMarketPrice === 'number') {
+            const price = chartData.regularMarketPrice;
+            const prevClose = chartData.regularMarketPreviousClose;
             const change = price - prevClose;
             const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
             return {
@@ -186,16 +291,23 @@ app.get('/api/chart', async (req, res) => {
   if (!symbol) return res.status(400).json({ success: false, error: 'Symbol required' });
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
-    const data = await fetchWithTimeout(url, 6000);
-    const result = data?.chart?.result?.[0];
-    if (!result) return res.status(404).json({ success: false, error: 'No chart data' });
+    const chartRes = await fetchYahooChart(symbol, interval, range, 6000);
+    if (!chartRes || !chartRes.rawChart) {
+      return res.status(404).json({ success: false, error: 'No chart data' });
+    }
+
+    const result = chartRes.rawChart?.chart?.result?.[0];
+    if (!result) return res.status(404).json({ success: false, error: 'No chart result' });
 
     res.json({
       success: true,
       meta: result.meta,
       timestamp: result.timestamp || [],
       quotes: result.indicators?.quote?.[0]?.close || [],
+      volumes: result.indicators?.quote?.[0]?.volume || [],
+      opens: result.indicators?.quote?.[0]?.open || [],
+      highs: result.indicators?.quote?.[0]?.high || [],
+      lows: result.indicators?.quote?.[0]?.low || [],
     });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });

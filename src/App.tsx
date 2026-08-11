@@ -19,6 +19,7 @@ import { StockTable } from './components/StockTable';
 import { AssetTrendChart } from './components/Charts/AssetTrendChart';
 import { AllocationPieChart } from './components/Charts/AllocationPieChart';
 import { SingleStockChart } from './components/Charts/SingleStockChart';
+import { FullStockChartModal } from './components/Charts/FullStockChartModal';
 import { StockModal } from './components/Modals/StockModal';
 import { TransactionHistoryModal } from './components/Modals/TransactionHistoryModal';
 import { TodayPLModal } from './components/Modals/TodayPLModal';
@@ -152,6 +153,7 @@ export default function App() {
 
   const [isTodayPLModalOpen, setIsTodayPLModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isFullChartModalOpen, setIsFullChartModalOpen] = useState(false);
 
   const [actionModal, setActionModal] = useState<{
     isOpen: boolean;
@@ -308,7 +310,19 @@ export default function App() {
               ? `${item.symbol}.TWO`
               : item.symbol;
 
-          const q = results.find((r) => r.symbol === symKey);
+          const itemBare = item.symbol.replace(/\.(TW|TWO)$/i, '').trim().toUpperCase();
+
+          const q = results.find((r) => {
+            if (!r || !r.symbol) return false;
+            const rUpper = r.symbol.toUpperCase();
+            const rBare = rUpper.replace(/\.(TW|TWO)$/i, '').trim();
+            return (
+              rUpper === symKey.toUpperCase() ||
+              rUpper === item.symbol.toUpperCase() ||
+              rBare === itemBare
+            );
+          });
+
           if (q && typeof q.regularMarketPrice === 'number') {
             success++;
             if (item.market === 'tse') twseSuccess = true;
@@ -326,9 +340,9 @@ export default function App() {
             return {
               ...item,
               price: newPrice,
-              prevClose: q.regularMarketPreviousClose,
-              dayHigh: q.regularMarketDayHigh,
-              dayLow: q.regularMarketDayLow,
+              prevClose: q.regularMarketPreviousClose || item.prevClose || newPrice,
+              dayHigh: q.regularMarketDayHigh || item.dayHigh || newPrice,
+              dayLow: q.regularMarketDayLow || item.dayLow || newPrice,
               fetchError: false,
               priceChanged,
             };
@@ -362,7 +376,11 @@ export default function App() {
 
       if (isManual) {
         playSuccessSound();
-        showToast('盤價與匯率同步完成！');
+        if (currentPortfolio.length > 0 && quoteSuccessCount > 0) {
+          showToast(`盤價與匯率同步完成！`);
+        } else {
+          showToast(`盤價與匯率同步完成！`);
+        }
       }
     } catch {
       if (isManual) showToast('行情連線逾時，請檢查網路狀態', false);
@@ -843,6 +861,7 @@ export default function App() {
           isRedUp={isRedUp}
           onSelectIndex={(symbol, market, name) => {
             setSelectedChartTarget({ symbol, market, name });
+            setIsFullChartModalOpen(true);
             const chartCard = document.getElementById('singleStockChartCard');
             if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
@@ -888,6 +907,7 @@ export default function App() {
           isRedUp={isRedUp}
           onSelectChartTarget={(symbol, market, name) => {
             setSelectedChartTarget({ symbol, market, name });
+            setIsFullChartModalOpen(true);
             const chartCard = document.getElementById('singleStockChartCard');
             if (chartCard) chartCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }}
@@ -946,6 +966,7 @@ export default function App() {
             setSelectedChartTarget({ symbol, market, name })
           }
           isRedUp={isRedUp}
+          onOpenFullModal={() => setIsFullChartModalOpen(true)}
         />
 
         {/* Financial News Marquee */}
@@ -1032,6 +1053,17 @@ export default function App() {
       <VersionHistoryModal
         isOpen={isVersionModalOpen}
         onClose={() => setIsVersionModalOpen(false)}
+      />
+
+      <FullStockChartModal
+        isOpen={isFullChartModalOpen}
+        onClose={() => setIsFullChartModalOpen(false)}
+        portfolio={portfolio}
+        selectedChartTarget={selectedChartTarget}
+        onSelectChartTarget={(symbol, market, name) =>
+          setSelectedChartTarget({ symbol, market, name })
+        }
+        isRedUp={isRedUp}
       />
 
       {/* Floating Mobile AI Copilot Shortcut */}
