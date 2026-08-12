@@ -39,6 +39,7 @@ import { Chart } from 'react-chartjs-2';
 import { StockPosition, ChartTarget, MarketType, IntradayData } from '../../types';
 import { playClickSound } from '../../utils/audio';
 import { apiFetchChartData, apiSearchStock } from '../../utils/apiClient';
+import { searchLocalDictionary } from '../../data/stockDictionary';
 import { getMarketStatusInfo } from '../../utils/marketHelper';
 
 ChartJS.register(
@@ -63,6 +64,7 @@ interface FullStockChartModalProps {
   selectedChartTarget: ChartTarget;
   onSelectChartTarget: (symbol: string, market: MarketType, name: string) => void;
   isRedUp: boolean;
+  onOpenAICopilot?: () => void;
 }
 
 // Quick Switcher Preset Categories
@@ -97,16 +99,20 @@ function generateFullTradingSession(
   const isJP = symbol === '^N225';
   const isKR = symbol === '^KS11';
 
+  let timeZone = 'Asia/Taipei';
   let startMins = 9 * 60; // 09:00
   let endMins = 13 * 60 + 30; // 13:30
 
   if (isUS) {
+    timeZone = 'America/New_York';
     startMins = 9 * 60 + 30; // 09:30
     endMins = 16 * 60; // 16:00
   } else if (isJP) {
+    timeZone = 'Asia/Tokyo';
     startMins = 9 * 60; // 09:00
     endMins = 15 * 60; // 15:00
   } else if (isKR) {
+    timeZone = 'Asia/Seoul';
     startMins = 9 * 60; // 09:00
     endMins = 15 * 60 + 30; // 15:30
   }
@@ -125,10 +131,30 @@ function generateFullTradingSession(
   ts.forEach((t, i) => {
     if (typeof quotes[i] === 'number' && quotes[i] > 0) {
       const d = new Date(t * 1000);
-      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      priceMap.set(hhmm, quotes[i]);
-      if (typeof rawVolumes[i] === 'number') {
-        volumeMap.set(hhmm, rawVolumes[i]);
+      let timeStr = '';
+      try {
+        timeStr = d.toLocaleTimeString('en-GB', {
+          timeZone,
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        timeStr = `${hh}:${mm}`;
+      }
+
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        const hh = Number(parts[0]);
+        const mm = Number(parts[1]);
+        const roundedMm = Math.floor(mm / 5) * 5;
+        const key = `${String(hh).padStart(2, '0')}:${String(roundedMm).padStart(2, '0')}`;
+        priceMap.set(key, quotes[i]);
+        if (typeof rawVolumes[i] === 'number') {
+          volumeMap.set(key, rawVolumes[i]);
+        }
       }
       validPrices.push(quotes[i]);
     }
@@ -145,23 +171,23 @@ function generateFullTradingSession(
     }
   });
 
-  if (latestAvailableIndex === -1) {
-    const fallbackLabels: string[] = [];
-    const fallbackVolumes: number[] = [];
-    ts.forEach((t, i) => {
-      if (typeof quotes[i] === 'number' && quotes[i] > 0) {
-        const d = new Date(t * 1000);
-        fallbackLabels.push(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
-        fallbackVolumes.push(rawVolumes[i] || 0);
-      }
-    });
-    return { fullLabels: fallbackLabels, fullPrices: validPrices, validPrices, fullVolumes: fallbackVolumes };
-  }
-
   const fullPrices: (number | null)[] = [];
   const fullVolumes: number[] = [];
-  let lastVal: number | null = null;
 
+  if (latestAvailableIndex === -1) {
+    for (let i = 0; i < fullLabels.length; i++) {
+      if (i < validPrices.length) {
+        fullPrices.push(validPrices[i]);
+        fullVolumes.push(rawVolumes[i] || 0);
+      } else {
+        fullPrices.push(null);
+        fullVolumes.push(0);
+      }
+    }
+    return { fullLabels, fullPrices, validPrices, fullVolumes };
+  }
+
+  let lastVal: number | null = null;
   for (let i = 0; i < fullLabels.length; i++) {
     const label = fullLabels[i];
     if (priceMap.has(label)) {
@@ -187,6 +213,7 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
   selectedChartTarget,
   onSelectChartTarget,
   isRedUp,
+  onOpenAICopilot,
 }) => {
   const [intradayData, setIntradayData] = useState<IntradayData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -224,14 +251,21 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
       return;
     }
 
+    const instantLocal = searchLocalDictionary(val, 8);
+    if (instantLocal.length > 0) {
+      setSearchResults(instantLocal);
+    }
+
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const res = await apiSearchStock(val);
-        setSearchResults(res);
+        if (Array.isArray(res) && res.length > 0) {
+          setSearchResults(res);
+        }
       } catch {
-        setSearchResults([]);
+        // Keep local matches if any
       }
-    }, 250);
+    }, 150);
   };
 
   // Fetch Intraday Data
@@ -516,6 +550,7 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       interaction: { mode: 'nearest' as const, axis: 'x' as const, intersect: false },
       plugins: {
         legend: { display: false },
@@ -640,7 +675,7 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950 text-slate-100 flex flex-col overflow-y-auto animate-fadeIn p-3 sm:p-5 h-[100dvh]">
+    <div className="fixed inset-0 z-[80] bg-slate-950 text-slate-100 flex flex-col overflow-y-auto animate-fadeIn p-3 sm:p-5 h-[100dvh]">
       {/* Top Professional Control Header Bar */}
       <div className="flex items-center justify-between border-b border-white/10 pb-3 gap-2 shrink-0">
         <div className="flex items-center gap-2 overflow-hidden">
@@ -689,6 +724,21 @@ export const FullStockChartModal: React.FC<FullStockChartModalProps> = ({
 
         {/* Action Controls & Stock Stepper (< / >) */}
         <div className="flex items-center gap-2 shrink-0">
+          {onOpenAICopilot && (
+            <button
+              onClick={() => {
+                playClickSound();
+                onOpenAICopilot();
+              }}
+              className="bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 px-2.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 btn-interact"
+              title="開啟 AI 戰情操盤顧問"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
+              <span className="hidden sm:inline">AI 戰情顧問</span>
+              <span className="sm:hidden">AI 戰情</span>
+            </button>
+          )}
+
           {portfolioList.length > 1 && (
             <div className="flex items-center bg-slate-900 border border-white/10 rounded-xl p-0.5">
               <button

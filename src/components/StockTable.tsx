@@ -300,9 +300,9 @@ export const StockTable: React.FC<StockTableProps> = ({
       ) : (
         <>
           {/* ========================================================= */}
-          {/* MOBILE VIEW: Touch-optimized Responsive Outline Cards (lg:hidden) */}
+          {/* MOBILE VIEW: High-Density Financial List Layout (lg:hidden) */}
           {/* ========================================================= */}
-          <div className="block lg:hidden divide-y divide-white/5 p-3 space-y-3">
+          <div className="block lg:hidden divide-y divide-white/5 bg-slate-900/30">
             {filteredPortfolio.map((item) => {
               const isUS = item.market === 'us';
               const buyFx = isUS ? item.buyRate || usdTwdRate : 1;
@@ -325,55 +325,61 @@ export const StockTable: React.FC<StockTableProps> = ({
                     playClickSound();
                     setDetailModalStock(item);
                   }}
-                  className="bg-slate-900/90 rounded-2xl border border-white/10 p-4 space-y-3 shadow-lg hover:border-sky-500/40 active:scale-[0.99] transition cursor-pointer group"
+                  className="px-4 py-3.5 hover:bg-slate-800/60 active:bg-slate-800 transition cursor-pointer flex items-center justify-between gap-3 group"
                 >
-                  {/* Outline Header: Stock Name, Symbol & Price */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-base font-black text-white group-hover:text-sky-400 transition flex items-center gap-2">
-                        <span>{item.name}</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 border border-white/10 text-slate-300">
-                          {item.market.toUpperCase()}
+                  {/* Left Column: Stock Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white group-hover:text-sky-400 transition truncate">
+                        {item.name}
+                      </span>
+                      <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-white/10 text-slate-300 shrink-0">
+                        {item.market.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] font-mono text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sky-400 font-semibold">{item.symbol}</span>
+                      <span>•</span>
+                      <span>{item.shares.toLocaleString()} 股</span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Price, Valuation, Profit & Chevron */}
+                  <div className="flex items-center gap-2 shrink-0 text-right">
+                    <div className="flex flex-col items-end">
+                      {/* Price & ROI */}
+                      <div className="flex items-center gap-1.5 font-mono">
+                        <span className="text-sm font-bold text-slate-100">
+                          {safePrice === null ? '--' : `$${safePrice}`}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            itemRoi === null
+                              ? 'bg-slate-800 text-slate-400'
+                              : itemRoi >= 0
+                              ? 'bg-emerald-500/15 text-emerald-400'
+                              : 'bg-rose-500/15 text-rose-400'
+                          }`}
+                        >
+                          {itemRoi === null ? '--' : `${itemRoi >= 0 ? '+' : ''}${itemRoi.toFixed(2)}%`}
                         </span>
                       </div>
-                      <div className="text-xs font-mono text-sky-400 mt-0.5">
-                        {item.symbol}
+
+                      {/* Valuation & Profit */}
+                      <div className="text-[11px] font-mono mt-0.5 flex items-center gap-1 text-slate-400">
+                        <span>{itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}</span>
+                        <span>|</span>
+                        <span className={`font-semibold ${profitColorClass}`}>
+                          {itemProfitTWD === null
+                            ? '--'
+                            : `${itemProfitTWD >= 0 ? '+' : ''}${formatMoney(itemProfitTWD, isPrivacy)}`}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-base font-black font-mono text-slate-100">
-                        {safePrice === null ? '--' : `$${safePrice} ${isUS ? 'USD' : ''}`}
-                      </div>
-                      <div className={`text-xs font-mono font-bold ${profitColorClass}`}>
-                        {itemRoi === null ? '--' : `${itemRoi >= 0 ? '+' : ''}${itemRoi.toFixed(2)}%`}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary Outline Row: Valuation & Profit */}
-                  <div className="flex justify-between items-center text-xs font-mono bg-slate-950/80 px-3 py-2 rounded-xl border border-white/5">
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-sans block">估值 (NT$)</span>
-                      <strong className="text-slate-200">
-                        {itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}
-                      </strong>
-                    </div>
-
-                    <div className="text-right">
-                      <span className="text-[10px] text-slate-400 font-sans block">未實現損益</span>
-                      <strong className={profitColorClass}>
-                        {itemProfitTWD === null
-                          ? '--'
-                          : `${itemProfitTWD >= 0 ? '+' : ''}${formatMoney(itemProfitTWD, isPrivacy)}`}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {/* Bottom Tap Prompt Indicator */}
-                  <div className="flex justify-between items-center text-[11px] text-sky-400/90 font-medium pt-0.5 group-hover:text-sky-300 transition">
-                    <span>點擊檢視完整數據與分析</span>
-                    <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-1 transition-transform" />
+                    {/* Chevron Indicator */}
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-sky-400 group-hover:translate-x-0.5 transition shrink-0" />
                   </div>
                 </div>
               );

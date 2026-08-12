@@ -45,26 +45,24 @@ function generateFullTradingSession(
   ts: number[],
   quotes: number[]
 ) {
-  const isTW =
-    market === 'tse' ||
-    market === 'otc' ||
-    symbol === '^TWII' ||
-    symbol.endsWith('.TW') ||
-    symbol.endsWith('.TWO');
   const isUS = market === 'us' || symbol === '^DJI' || symbol === '^GSPC' || symbol === '^IXIC';
   const isJP = symbol === '^N225';
   const isKR = symbol === '^KS11';
 
+  let timeZone = 'Asia/Taipei';
   let startMins = 9 * 60; // 09:00
   let endMins = 13 * 60 + 30; // 13:30
 
   if (isUS) {
+    timeZone = 'America/New_York';
     startMins = 9 * 60 + 30; // 09:30
     endMins = 16 * 60; // 16:00
   } else if (isJP) {
+    timeZone = 'Asia/Tokyo';
     startMins = 9 * 60; // 09:00
     endMins = 15 * 60; // 15:00
   } else if (isKR) {
+    timeZone = 'Asia/Seoul';
     startMins = 9 * 60; // 09:00
     endMins = 15 * 60 + 30; // 15:30
   }
@@ -82,8 +80,28 @@ function generateFullTradingSession(
   ts.forEach((t, i) => {
     if (typeof quotes[i] === 'number' && quotes[i] > 0) {
       const d = new Date(t * 1000);
-      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      priceMap.set(hhmm, quotes[i]);
+      let timeStr = '';
+      try {
+        timeStr = d.toLocaleTimeString('en-GB', {
+          timeZone,
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      } catch {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        timeStr = `${hh}:${mm}`;
+      }
+
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        const hh = Number(parts[0]);
+        const mm = Number(parts[1]);
+        const roundedMm = Math.floor(mm / 5) * 5;
+        const key = `${String(hh).padStart(2, '0')}:${String(roundedMm).padStart(2, '0')}`;
+        priceMap.set(key, quotes[i]);
+      }
       validPrices.push(quotes[i]);
     }
   });
@@ -99,20 +117,21 @@ function generateFullTradingSession(
     }
   });
 
+  const fullPrices: (number | null)[] = [];
+
   if (latestAvailableIndex === -1) {
-    const fallbackLabels: string[] = [];
-    ts.forEach((t, i) => {
-      if (typeof quotes[i] === 'number' && quotes[i] > 0) {
-        const d = new Date(t * 1000);
-        fallbackLabels.push(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    // Fill labels up to validPrices length or standard session
+    for (let i = 0; i < fullLabels.length; i++) {
+      if (i < validPrices.length) {
+        fullPrices.push(validPrices[i]);
+      } else {
+        fullPrices.push(null);
       }
-    });
-    return { fullLabels: fallbackLabels, fullPrices: validPrices, validPrices };
+    }
+    return { fullLabels, fullPrices, validPrices };
   }
 
-  const fullPrices: (number | null)[] = [];
   let lastVal: number | null = null;
-
   for (let i = 0; i < fullLabels.length; i++) {
     const label = fullLabels[i];
     if (priceMap.has(label)) {
@@ -364,6 +383,7 @@ export const SingleStockChart: React.FC<SingleStockChartProps> = ({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       interaction: { mode: 'nearest' as const, axis: 'x' as const, intersect: false },
       plugins: {
         legend: { display: false },

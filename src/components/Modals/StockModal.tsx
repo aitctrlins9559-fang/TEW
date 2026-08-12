@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, Search, Loader2, Target, X } from 'lucide-react';
 import { StockPosition, MarketType } from '../../types';
-import { BUILTIN_STOCK_DICTIONARY, searchLocalDictionary } from '../../data/stockDictionary';
+import { BUILTIN_STOCK_DICTIONARY, searchLocalDictionary, lookupStockInfo } from '../../data/stockDictionary';
 import { playClickSound } from '../../utils/audio';
 import { apiFetchQuotes, apiSearchStock } from '../../utils/apiClient';
 
@@ -70,6 +70,16 @@ export const StockModal: React.FC<StockModalProps> = ({
   const fetchLivePreview = async (sym: string, mkt: MarketType) => {
     if (!sym) return;
     setLivePrice('查詢中...');
+
+    // Auto fill name if matched from dictionary
+    const info = lookupStockInfo(sym);
+    if (info) {
+      if (!name || name.startsWith('台股標的') || name.startsWith('美股標的')) {
+        setName(info.name);
+        setMarket(info.market);
+      }
+    }
+
     try {
       const s = mkt === 'tse' ? `${sym}.TW` : mkt === 'otc' ? `${sym}.TWO` : sym;
       const quotes = await apiFetchQuotes([s]);

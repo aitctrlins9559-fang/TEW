@@ -953,8 +953,8 @@ export default function App() {
         />
 
         {/* Quick View Jump Navigation Bar (Sticky Top) */}
-        <div className="sticky top-2 z-30 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-xl border border-sky-500/20 rounded-2xl p-2.5 px-4 shadow-2xl text-xs">
-          <div className="flex items-center gap-2 text-slate-200 font-bold">
+        <div className="sticky top-2 z-40 flex flex-wrap items-center justify-between gap-2 bg-slate-900/95 backdrop-blur-xl border border-sky-500/30 rounded-2xl p-2.5 px-4 shadow-[0_10px_30px_rgba(0,0,0,0.5)] text-xs transition-all">
+          <div className="flex items-center gap-2 text-slate-200 font-bold shrink-0">
             <SlidersHorizontal className="w-4 h-4 text-sky-400" />
             <span>版面視圖快捷跳轉</span>
           </div>
@@ -963,7 +963,12 @@ export default function App() {
             <button
               onClick={() => {
                 playClickSound();
-                document.getElementById('section-indices')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeMobileTab !== 'all' && activeMobileTab !== 'overview') {
+                  setActiveMobileTab('all');
+                }
+                setTimeout(() => {
+                  document.getElementById('section-indices')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }}
               className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-sky-500/20 text-slate-200 hover:text-sky-300 hover:border-sky-500/40 flex items-center gap-1.5 btn-interact"
             >
@@ -974,7 +979,12 @@ export default function App() {
             <button
               onClick={() => {
                 playClickSound();
-                document.getElementById('section-performance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeMobileTab !== 'all' && activeMobileTab !== 'overview') {
+                  setActiveMobileTab('all');
+                }
+                setTimeout(() => {
+                  document.getElementById('section-performance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }}
               className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 hover:border-amber-500/40 flex items-center gap-1.5 btn-interact"
             >
@@ -985,7 +995,12 @@ export default function App() {
             <button
               onClick={() => {
                 playClickSound();
-                document.getElementById('section-assethub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeMobileTab !== 'all' && activeMobileTab !== 'charts') {
+                  setActiveMobileTab('all');
+                }
+                setTimeout(() => {
+                  document.getElementById('section-assethub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }}
               className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-indigo-500/20 text-slate-200 hover:text-indigo-300 hover:border-indigo-500/40 flex items-center gap-1.5 btn-interact"
             >
@@ -996,7 +1011,12 @@ export default function App() {
             <button
               onClick={() => {
                 playClickSound();
-                document.getElementById('section-portfolio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeMobileTab !== 'all' && activeMobileTab !== 'portfolio') {
+                  setActiveMobileTab('portfolio');
+                }
+                setTimeout(() => {
+                  document.getElementById('section-portfolio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }}
               className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 hover:border-emerald-500/40 flex items-center gap-1.5 btn-interact"
             >
@@ -1007,7 +1027,12 @@ export default function App() {
             <button
               onClick={() => {
                 playClickSound();
-                document.getElementById('section-dividends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (activeMobileTab !== 'all') {
+                  setActiveMobileTab('all');
+                }
+                setTimeout(() => {
+                  document.getElementById('section-dividends')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 50);
               }}
               className="px-3 py-1.5 rounded-xl font-bold transition border border-white/10 bg-slate-800/90 hover:bg-rose-500/20 text-slate-200 hover:text-rose-300 hover:border-rose-500/40 flex items-center gap-1.5 btn-interact"
             >
@@ -1266,6 +1291,10 @@ export default function App() {
           setSelectedChartTarget({ symbol, market, name })
         }
         isRedUp={isRedUp}
+        onOpenAICopilot={() => {
+          setIsAICopilotOpen(true);
+          if (!aiAnalysisResult) handleRunAIAnalysis();
+        }}
       />
 
       <DeleteConfirmModal

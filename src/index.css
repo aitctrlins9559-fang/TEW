@@ -4,7 +4,7 @@ html {
   touch-action: manipulation;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   max-width: 100vw;
 }
 
@@ -20,7 +20,7 @@ html {
     background-attachment: fixed;
     letter-spacing: -0.01em;
     touch-action: manipulation;
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
   }
 }

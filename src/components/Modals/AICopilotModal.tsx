@@ -194,7 +194,7 @@ export const AICopilotModal: React.FC<AICopilotModalProps> = ({
         playClickSound();
         onClose();
       }}
-      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[75] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
+      className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-[90] flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-300"
     >
       <div
         onClick={(e) => e.stopPropagation()}

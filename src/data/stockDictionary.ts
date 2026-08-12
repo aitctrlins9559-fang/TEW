@@ -27,6 +27,9 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: '00934', name: '中信成長高股息', market: 'tse' },
   { symbol: '00936', name: '台新永續高息中小', market: 'tse' },
   { symbol: '00632R', name: '元大台灣50反1', market: 'tse' },
+  { symbol: '00679B', name: '元大美債20年', market: 'tse' },
+  { symbol: '00687B', name: '國泰20年美債', market: 'tse' },
+  { symbol: '00937B', name: '群益ESG投等債20+', market: 'otc' },
 
   // === 台股權值股與半導體/AI概念股 (上市 TSE) ===
   { symbol: '2330', name: '台積電', market: 'tse' },
@@ -62,8 +65,40 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: '6415', name: '矽力*-KY', market: 'tse' },
   { symbol: '6691', name: '洋基工程', market: 'tse' },
   { symbol: '6944', name: '兆聯實業', market: 'tse' },
+  { symbol: '2383', name: '台光電', market: 'tse' },
+  { symbol: '2368', name: '金像電', market: 'tse' },
+  { symbol: '2313', name: '華通', market: 'tse' },
+  { symbol: '3036', name: '文曄', market: 'tse' },
+  { symbol: '3706', name: '神達', market: 'tse' },
+  { symbol: '6213', name: '聯茂', market: 'tse' },
+  { symbol: '8210', name: '勤誠', market: 'tse' },
+  { symbol: '3013', name: '晟銘電', market: 'tse' },
+  { symbol: '3533', name: '嘉澤', market: 'tse' },
+  { symbol: '2059', name: '川湖', market: 'tse' },
+  { symbol: '3665', name: '貿聯-KY', market: 'tse' },
+  { symbol: '6239', name: '力成', market: 'tse' },
+  { symbol: '3702', name: '大聯大', market: 'tse' },
+  { symbol: '2347', name: '聯強', market: 'tse' },
+  { symbol: '2385', name: '群光', market: 'tse' },
+  { symbol: '2352', name: '佳世達', market: 'tse' },
+  { symbol: '2353', name: '宏碁', market: 'tse' },
+  { symbol: '2323', name: '中環', market: 'tse' },
 
-  // === 台股航運、鋼鐵、水泥、化學傳產 ===
+  // === 重電 / 綠能 / 機電 / 電纜 ===
+  { symbol: '1513', name: '中興電', market: 'tse' },
+  { symbol: '1519', name: '華城', market: 'tse' },
+  { symbol: '1503', name: '士電', market: 'tse' },
+  { symbol: '1514', name: '亞力', market: 'tse' },
+  { symbol: '1504', name: '東元', market: 'tse' },
+  { symbol: '2371', name: '大同', market: 'tse' },
+  { symbol: '6806', name: '森崴能源', market: 'tse' },
+  { symbol: '1605', name: '華新', market: 'tse' },
+  { symbol: '1609', name: '太電', market: 'tse' },
+
+  // === 電信 / 傳統產業 / 航運鋼鐵 ===
+  { symbol: '2412', name: '中華電', market: 'tse' },
+  { symbol: '3045', name: '台灣大', market: 'tse' },
+  { symbol: '4904', name: '遠傳', market: 'tse' },
   { symbol: '2603', name: '長榮', market: 'tse' },
   { symbol: '2609', name: '陽明', market: 'tse' },
   { symbol: '2615', name: '萬海', market: 'tse' },
@@ -79,6 +114,10 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: '2201', name: '裕隆', market: 'tse' },
   { symbol: '2912', name: '統一超', market: 'tse' },
   { symbol: '1216', name: '統一', market: 'tse' },
+  { symbol: '2409', name: '友達', market: 'tse' },
+  { symbol: '3481', name: '群創', market: 'tse' },
+  { symbol: '1795', name: '美時', market: 'tse' },
+  { symbol: '6472', name: '保瑞', market: 'tse' },
 
   // === 台股金融股 (金控/銀行) ===
   { symbol: '2881', name: '富邦金', market: 'tse' },
@@ -96,6 +135,7 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: '5876', name: '上海商銀', market: 'tse' },
   { symbol: '2801', name: '彰銀', market: 'tse' },
   { symbol: '2834', name: '臺企銀', market: 'tse' },
+  { symbol: '2888', name: '新光金', market: 'tse' },
 
   // === 台股熱門上櫃 (OTC) ===
   { symbol: '6488', name: '環球晶', market: 'otc' },
@@ -117,6 +157,11 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: '6121', name: '新普', market: 'otc' },
   { symbol: '5483', name: '中美晶', market: 'otc' },
   { symbol: '8454', name: '富邦媒', market: 'otc' },
+  { symbol: '6643', name: 'M31', market: 'otc' },
+  { symbol: '6531', name: '愛普*', market: 'otc' },
+  { symbol: '8054', name: '安國', market: 'otc' },
+  { symbol: '5425', name: '台半', market: 'otc' },
+  { symbol: '5434', name: '崇越', market: 'otc' },
 
   // === 美股巨頭與熱門 ETF ===
   { symbol: 'NVDA', name: 'NVIDIA 輝達', market: 'us' },
@@ -133,6 +178,17 @@ export const BUILTIN_STOCK_DICTIONARY: StockDictItem[] = [
   { symbol: 'SMCI', name: '超微電腦', market: 'us' },
   { symbol: 'INTC', name: 'Intel 英特爾', market: 'us' },
   { symbol: 'ARM', name: 'Arm 控股', market: 'us' },
+  { symbol: 'COST', name: 'Costco 好市多', market: 'us' },
+  { symbol: 'DIS', name: 'Disney 迪士尼', market: 'us' },
+  { symbol: 'COIN', name: 'Coinbase', market: 'us' },
+  { symbol: 'LLY', name: 'Eli Lilly 禮來', market: 'us' },
+  { symbol: 'NVO', name: 'Novo Nordisk 諾和諾德', market: 'us' },
+  { symbol: 'CRM', name: 'Salesforce 賽富時', market: 'us' },
+  { symbol: 'JPM', name: 'JPMorgan 摩根大通', market: 'us' },
+  { symbol: 'BAC', name: 'Bank of America 美國銀行', market: 'us' },
+  { symbol: 'WMT', name: 'Walmart 沃爾瑪', market: 'us' },
+  { symbol: 'NFLX', name: 'Netflix 網飛', market: 'us' },
+  { symbol: 'ORCL', name: 'Oracle 甲骨文', market: 'us' },
   { symbol: 'QQQ', name: 'Invesco QQQ ETF', market: 'us' },
   { symbol: 'SPY', name: 'SPDR S&P 500 ETF', market: 'us' },
   { symbol: 'VOO', name: 'Vanguard S&P 500 ETF', market: 'us' },
@@ -164,13 +220,40 @@ export function lookupStockInfo(query: string): StockDictItem | undefined {
 }
 
 /**
- * 智慧搜尋股票，優先返回帶有繁體中文名稱的完整項目
+ * 智慧搜尋股票，優先返回帶有繁體中文名稱的完整項目。
+ * 若使用者輸入任意無預置的代號 (如台股數字 1513 或美股英文字母)，自動產生即時選項。
  */
 export function searchLocalDictionary(query: string, maxLimit = 10): StockDictItem[] {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return [];
+  const qLower = q.toLowerCase();
 
-  return BUILTIN_STOCK_DICTIONARY.filter(
-    (item) => item.symbol.toLowerCase().includes(q) || item.name.toLowerCase().includes(q)
-  ).slice(0, maxLimit);
+  const matches = BUILTIN_STOCK_DICTIONARY.filter(
+    (item) => item.symbol.toLowerCase().includes(qLower) || item.name.toLowerCase().includes(qLower)
+  );
+
+  const upperQ = q.toUpperCase();
+  const hasExactSymbol = matches.some((m) => m.symbol.toUpperCase() === upperQ);
+
+  if (!hasExactSymbol) {
+    const isTwCode = /^\d{4,6}[A-Z]?$/i.test(q);
+    const isUsTicker = /^[A-Z]{1,5}$/i.test(q) && !isTwCode;
+
+    if (isTwCode) {
+      matches.unshift({
+        symbol: upperQ,
+        name: `台股標的 ${upperQ}`,
+        market: 'tse',
+      });
+    } else if (isUsTicker) {
+      matches.push({
+        symbol: upperQ,
+        name: `美股標的 ${upperQ}`,
+        market: 'us',
+      });
+    }
+  }
+
+  return matches.slice(0, maxLimit);
 }
+
