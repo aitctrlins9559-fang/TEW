@@ -10,6 +10,7 @@ interface DividendCalendarModalProps {
   usdTwdRate: number;
   isPrivacy: boolean;
   onClose: () => void;
+  onUpdateStock?: (updatedStock: StockPosition) => void;
 }
 
 export const DividendCalendarModal: React.FC<DividendCalendarModalProps> = ({
@@ -18,6 +19,7 @@ export const DividendCalendarModal: React.FC<DividendCalendarModalProps> = ({
   usdTwdRate,
   isPrivacy,
   onClose,
+  onUpdateStock,
 }) => {
   if (!isOpen) return null;
 
@@ -48,7 +50,12 @@ export const DividendCalendarModal: React.FC<DividendCalendarModalProps> = ({
 
         {/* Modal Content */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1">
-          <DividendCalendar portfolio={portfolio} usdTwdRate={usdTwdRate} isPrivacy={isPrivacy} />
+          <DividendCalendar
+            portfolio={portfolio}
+            usdTwdRate={usdTwdRate}
+            isPrivacy={isPrivacy}
+            onUpdateStock={onUpdateStock}
+          />
         </div>
       </div>
     </div>

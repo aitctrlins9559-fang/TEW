@@ -24,6 +24,8 @@ export interface StockPosition {
   dayLow: number | null;
   fetchError?: boolean;
   priceChanged?: 'up' | 'down' | null;
+  customExDate?: string; // e.g. "2026/03/18"
+  customDps?: number; // e.g. 0.75
 }
 
 export interface MarketIndex {

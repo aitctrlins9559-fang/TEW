@@ -243,6 +243,29 @@ export async function apiSearchStock(query: string) {
 }
 
 // 5. News
+export interface DividendEventItem {
+  symbol: string;
+  exDate: string; // YYYY/MM/DD
+  exDateTs: number;
+  amount: number;
+}
+
+export async function apiFetchDividends(symbols: string[]): Promise<DividendEventItem[]> {
+  if (!symbols || symbols.length === 0) return [];
+  try {
+    const res = await fetchWithTimeout(`/api/dividends?symbols=${encodeURIComponent(symbols.join(','))}`, {}, 6000);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.events)) {
+        return json.events;
+      }
+    }
+  } catch {
+    // Fallback if backend route fails
+  }
+  return [];
+}
+
 export async function apiFetchNews() {
   try {
     const res = await fetchWithTimeout('/api/news', {}, 5000);

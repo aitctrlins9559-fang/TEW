@@ -5,7 +5,10 @@ export interface DividendInfo {
   dividendYieldPct: number; // %
   frequency: '月配息' | '季配息' | '半年配' | '年配息';
   exMonths: number[]; // e.g. [1, 4, 7, 10] for quarterly
-  nextExMonthStr: string; // e.g. "2026/09"
+  nextExMonthStr: string; // e.g. "2026/09/18" or "2026/09月"
+  exactExDate?: string; // YYYY/MM/DD
+  lastBuyDate?: string; // YYYY/MM/DD
+  isOfficial?: boolean;
   annualIncomeTWD: number;
   monthlyIncomeTWD: number;
 }
@@ -106,15 +109,38 @@ export function getStockDividendInfo(
     }
   }
 
+  // Override with user custom DPS if specified
+  if (typeof stock.customDps === 'number' && stock.customDps > 0) {
+    annualDps = stock.customDps;
+  }
+
   const dividendYieldPct = currentPrice > 0 ? (annualDps / currentPrice) * 100 : 0;
   const annualIncomeTWD = stock.shares * annualDps * marketFx;
   const monthlyIncomeTWD = annualIncomeTWD / 12;
 
-  // Calculate next ex-dividend month string
+  // Calculate next ex-dividend date / month string
+  let exactExDate: string | undefined = stock.customExDate;
+  let lastBuyDate: string | undefined;
+  let isOfficial = false;
+
+  if (stock.customExDate) {
+    exactExDate = stock.customExDate;
+    isOfficial = true;
+    // Compute last buy date (1 day before exDate)
+    const dt = new Date(stock.customExDate);
+    if (!isNaN(dt.getTime())) {
+      dt.setDate(dt.getDate() - 1);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      lastBuyDate = `${yyyy}/${mm}/${dd}`;
+    }
+  }
+
   const currentMonth = new Date().getMonth() + 1; // 1 ~ 12
   const nextExM = exMonths.find((m) => m >= currentMonth) || exMonths[0];
   const nextYear = nextExM < currentMonth ? new Date().getFullYear() + 1 : new Date().getFullYear();
-  const nextExMonthStr = `${nextYear}/${nextExM < 10 ? '0' : ''}${nextExM}月`;
+  const nextExMonthStr = exactExDate ? exactExDate : `${nextYear}/${nextExM < 10 ? '0' : ''}${nextExM}月`;
 
   return {
     annualDividendPerShare: annualDps,
@@ -122,6 +148,9 @@ export function getStockDividendInfo(
     frequency,
     exMonths,
     nextExMonthStr,
+    exactExDate,
+    lastBuyDate,
+    isOfficial,
     annualIncomeTWD,
     monthlyIncomeTWD,
   };
@@ -137,6 +166,9 @@ export interface PortfolioDividendSummary {
     name: string;
     frequency: string;
     nextExMonthStr: string;
+    exactExDate?: string;
+    lastBuyDate?: string;
+    isOfficial?: boolean;
     estAmountTWD: number;
   }>;
 }
@@ -178,6 +210,9 @@ export function calculatePortfolioDividends(
         name: stock.name,
         frequency: info.frequency,
         nextExMonthStr: info.nextExMonthStr,
+        exactExDate: info.exactExDate,
+        lastBuyDate: info.lastBuyDate,
+        isOfficial: info.isOfficial,
         estAmountTWD: info.annualIncomeTWD / info.exMonths.length,
       });
     }

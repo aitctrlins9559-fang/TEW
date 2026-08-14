@@ -229,6 +229,68 @@ app.get('/api/indices', async (_req, res) => {
 });
 
 // 4. Stock Search Endpoint
+app.get('/api/dividends', async (req, res) => {
+  const symbolsParam = String(req.query.symbols || req.query.symbol || '').trim();
+  if (!symbolsParam) return res.json({ success: true, events: [] });
+
+  const rawSymbols = symbolsParam.split(',').map((s) => s.trim()).filter(Boolean);
+  const eventsResult: Array<{
+    symbol: string;
+    exDate: string; // YYYY/MM/DD
+    exDateTs: number;
+    amount: number;
+    type?: string;
+  }> = [];
+
+  await Promise.all(
+    rawSymbols.map(async (rawSym) => {
+      const isTwCode = /^\d{4,6}[A-Z]?$/i.test(rawSym.replace(/\.(TW|TWO)$/i, ''));
+      let querySym = rawSym.toUpperCase();
+      if (isTwCode && !querySym.endsWith('.TW') && !querySym.endsWith('.TWO')) {
+        querySym = `${querySym}.TW`;
+      }
+
+      const hosts = ['query2.finance.yahoo.com', 'query1.finance.yahoo.com'];
+      for (const host of hosts) {
+        try {
+          const url = `https://${host}/v8/finance/chart/${encodeURIComponent(querySym)}?events=div&range=2y&interval=1d`;
+          const data = await fetchWithTimeout(url, 6000);
+          const divsObj = data?.chart?.result?.[0]?.events?.dividends;
+          if (divsObj && typeof divsObj === 'object') {
+            const keys = Object.keys(divsObj);
+            keys.forEach((k) => {
+              const div = divsObj[k];
+              if (div && div.date && div.amount) {
+                const dt = new Date(div.date * 1000);
+                const yyyy = dt.getFullYear();
+                const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                const dd = String(dt.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}/${mm}/${dd}`;
+
+                eventsResult.push({
+                  symbol: rawSym.toUpperCase(),
+                  exDate: dateStr,
+                  exDateTs: div.date,
+                  amount: Number(div.amount),
+                });
+              }
+            });
+            break; // success
+          }
+        } catch {
+          // try next
+        }
+      }
+    })
+  );
+
+  // Sort by ex-date descending
+  eventsResult.sort((a, b) => b.exDateTs - a.exDateTs);
+
+  res.json({ success: true, events: eventsResult });
+});
+
+// 4. Stock Search Endpoint
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.json({ success: true, results: [] });

@@ -621,6 +621,14 @@ export default function App() {
     fetchRealtimePrices();
   };
 
+  const handleUpdateSingleStock = (updatedStock: StockPosition) => {
+    const updated = portfolio.map((item) => (item.id === updatedStock.id ? updatedStock : item));
+    const normalized = normalizePortfolio(updated);
+    setPortfolio(normalized);
+    savePortfolioLocal(normalized);
+    showToast(`已校正 ${updatedStock.symbol} 的官方除息日與配息資訊！`);
+  };
+
   // Stock Delete
   const handleDeleteStock = (id: string) => {
     const stock = portfolio.find((p) => p.id === id);
@@ -1197,6 +1205,7 @@ export default function App() {
                   portfolio={portfolio}
                   usdTwdRate={usdTwdRate}
                   isPrivacy={isPrivacy}
+                  onUpdateStock={handleUpdateSingleStock}
                 />
               </div>
               <LunarFortuneCard />
@@ -1328,6 +1337,7 @@ export default function App() {
         usdTwdRate={usdTwdRate}
         isPrivacy={isPrivacy}
         onClose={() => setIsDividendModalOpen(false)}
+        onUpdateStock={handleUpdateSingleStock}
       />
 
       <AssetAnalysisModal
