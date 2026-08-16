@@ -53,23 +53,34 @@ app.get('/api/fx', async (_req, res) => {
 // 2. Real-time Quotes Endpoint (TWSE MIS Batch + Yahoo Finance Multi-Host Fallback)
 async function fetchYahooChart(sym: string, interval = '1m', range = '1d', timeoutMs = 6000) {
   const hosts = ['query2.finance.yahoo.com', 'query1.finance.yahoo.com'];
-  for (const host of hosts) {
-    try {
-      const url = `https://${host}/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}`;
-      const data = await fetchWithTimeout(url, timeoutMs);
-      const meta = data?.chart?.result?.[0]?.meta;
-      if (meta && typeof meta.regularMarketPrice === 'number') {
-        return {
-          symbol: sym,
-          regularMarketPrice: meta.regularMarketPrice,
-          regularMarketPreviousClose: meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice,
-          regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-          regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
-          rawChart: data,
-        };
+  const isNumericCode = /^\d{4,6}[A-Z]?$/i.test(sym.trim());
+
+  const symbolsToTry: string[] = [sym];
+  if (isNumericCode && !sym.includes('.')) {
+    symbolsToTry.unshift(`${sym}.TW`);
+    symbolsToTry.push(`${sym}.TWO`);
+  }
+
+  for (const s of symbolsToTry) {
+    for (const host of hosts) {
+      try {
+        const url = `https://${host}/v8/finance/chart/${encodeURIComponent(s)}?interval=${interval}&range=${range}`;
+        const data = await fetchWithTimeout(url, timeoutMs);
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta && typeof meta.regularMarketPrice === 'number') {
+          return {
+            symbol: sym,
+            resolvedSymbol: s,
+            regularMarketPrice: meta.regularMarketPrice,
+            regularMarketPreviousClose: meta.chartPreviousClose || meta.previousClose || meta.regularMarketPrice,
+            regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
+            regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
+            rawChart: data,
+          };
+        }
+      } catch {
+        // try next
       }
-    } catch {
-      // try next host
     }
   }
   return null;

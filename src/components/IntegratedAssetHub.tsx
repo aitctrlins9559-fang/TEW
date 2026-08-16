@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { TrendingUp, PieChart, LayoutGrid, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, PieChart, LayoutGrid, ChevronDown, ChevronUp, Waves } from 'lucide-react';
 import { StockPosition } from '../types';
 import { AssetTrendChart } from './Charts/AssetTrendChart';
 import { AllocationPieChart } from './Charts/AllocationPieChart';
+import { AssetRiverChart } from './Charts/AssetRiverChart';
 import { formatMoney } from '../utils/format';
 import { playClickSound } from '../utils/audio';
 
@@ -25,7 +26,7 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
   isPrivacy,
   isRedUp,
 }) => {
-  const [activeTab, setActiveTab] = useState<'trend' | 'pie' | 'both'>('both');
+  const [activeTab, setActiveTab] = useState<'trend' | 'river' | 'pie' | 'both'>('both');
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
 
   return (
@@ -43,7 +44,7 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
                 {formatMoney(currentVal, isPrivacy)}
               </span>
             </h2>
-            <p className="text-[11px] text-slate-400 font-medium">整合即時總市值歷史走勢與個股權重配比</p>
+            <p className="text-[11px] text-slate-400 font-medium">整合即時總市值歷史走勢、長期河流圖與個股權重配比</p>
           </div>
         </div>
 
@@ -63,7 +64,22 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">市值走勢</span>
+                <span className="hidden sm:inline">即時走勢</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setActiveTab('river');
+                }}
+                className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                  activeTab === 'river'
+                    ? 'bg-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.3)]'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Waves className="w-3.5 h-3.5 text-indigo-300" />
+                <span className="hidden sm:inline">長期河流圖</span>
               </button>
 
               <button
@@ -73,7 +89,7 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
                   activeTab === 'pie'
-                    ? 'bg-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.3)]'
+                    ? 'bg-purple-500 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)]'
                     : 'text-slate-400 hover:text-white hover:bg-white/5'
                 }`}
               >
@@ -93,7 +109,7 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">雙軌檢視</span>
+                <span className="hidden sm:inline">雙軌/全景</span>
               </button>
             </div>
           )}
@@ -110,7 +126,7 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
             {isExpanded ? (
               <>
                 <ChevronUp className="w-4 h-4 text-sky-400" />
-                <span>收合圖表</span>
+                <span>收合圖力</span>
               </>
             ) : (
               <>
@@ -137,6 +153,17 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
             </div>
           )}
 
+          {activeTab === 'river' && (
+            <div className="w-full">
+              <AssetRiverChart
+                portfolio={portfolio}
+                usdTwdRate={usdTwdRate}
+                isPrivacy={isPrivacy}
+                isRedUp={isRedUp}
+              />
+            </div>
+          )}
+
           {activeTab === 'pie' && (
             <div className="w-full">
               <AllocationPieChart
@@ -148,18 +175,28 @@ export const IntegratedAssetHub: React.FC<IntegratedAssetHubProps> = ({
           )}
 
           {activeTab === 'both' && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <AssetTrendChart
-                labels={labels}
-                data={data}
-                currentVal={currentVal}
-                isPrivacy={isPrivacy}
-                isRedUp={isRedUp}
-              />
-              <AllocationPieChart
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <AssetTrendChart
+                  labels={labels}
+                  data={data}
+                  currentVal={currentVal}
+                  isPrivacy={isPrivacy}
+                  isRedUp={isRedUp}
+                />
+                <AllocationPieChart
+                  portfolio={portfolio}
+                  usdTwdRate={usdTwdRate}
+                  isPrivacy={isPrivacy}
+                />
+              </div>
+
+              {/* Long-Term Asset River Chart */}
+              <AssetRiverChart
                 portfolio={portfolio}
                 usdTwdRate={usdTwdRate}
                 isPrivacy={isPrivacy}
+                isRedUp={isRedUp}
               />
             </div>
           )}

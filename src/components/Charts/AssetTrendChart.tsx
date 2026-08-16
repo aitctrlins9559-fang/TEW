@@ -132,10 +132,19 @@ export const AssetTrendChart: React.FC<AssetTrendChartProps> = ({
           position: 'right' as const,
           grid: { color: 'rgba(255,255,255,0.05)', borderDash: [5, 5] },
           ticks: {
-            color: '#64748b',
-            font: { size: 11, family: 'monospace' },
-            padding: 15,
-            callback: (value: string | number) => (isPrivacy ? '****' : `${(Number(value) / 10000).toFixed(0)} 萬`),
+            color: '#94a3b8',
+            font: { size: 11, family: 'monospace', weight: 'bold' },
+            maxTicksLimit: 5, // Generous vertical tick spacing so Y-axis numbers aren't cramped
+            padding: 12,
+            callback: (value: string | number) => {
+              if (isPrivacy) return '****';
+              const val = Number(value);
+              if (Math.abs(val) >= 10000) {
+                const w = val / 10000;
+                return w % 1 === 0 ? `${w.toFixed(0)} 萬` : `${w.toFixed(1)} 萬`;
+              }
+              return `$${Math.round(val).toLocaleString()}`;
+            },
           },
         },
       },

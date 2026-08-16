@@ -42,6 +42,7 @@ import {
   apiFetchQuotes,
   apiFetchIndices,
   apiFetchNews,
+  apiFetchChartData,
   apiRunAIAnalysis,
 } from './utils/apiClient';
 import {
@@ -844,7 +845,89 @@ export default function App() {
     else twCount++;
   });
 
+  // Real intraday price series state for total asset trend
+  const [realIntradaySeries, setRealIntradaySeries] = useState<{ labels: string[]; data: number[] } | null>(null);
+
+  // Fetch real 5-minute intraday price history for all portfolio holdings
+  useEffect(() => {
+    let isMounted = true;
+    if (!portfolio || portfolio.length === 0) {
+      setRealIntradaySeries(null);
+      return;
+    }
+
+    const fetchIntradayRealSeries = async () => {
+      try {
+        const results = await Promise.all(
+          portfolio.map(async (stock) => {
+            let sym = stock.symbol.toUpperCase();
+            if (stock.market === 'tse' && !sym.endsWith('.TW')) sym = `${sym}.TW`;
+            if (stock.market === 'otc' && !sym.endsWith('.TWO')) sym = `${sym}.TWO`;
+            const chartData = await apiFetchChartData(sym, '1d', '5m');
+            return { stock, chartData };
+          })
+        );
+
+        if (!isMounted) return;
+
+        // Collect intraday timestamp buckets
+        const tsMap = new Map<number, string>();
+        results.forEach(({ chartData }) => {
+          if (chartData && Array.isArray(chartData.timestamp)) {
+            chartData.timestamp.forEach((ts: number) => {
+              if (ts && !tsMap.has(ts)) {
+                const dt = new Date(ts * 1000);
+                const hh = String(dt.getHours()).padStart(2, '0');
+                const mm = String(dt.getMinutes()).padStart(2, '0');
+                tsMap.set(ts, `${hh}:${mm}`);
+              }
+            });
+          }
+        });
+
+        const sortedTs = Array.from(tsMap.keys()).sort((a, b) => a - b);
+        if (sortedTs.length === 0) return;
+
+        const labels = sortedTs.map((ts) => tsMap.get(ts) || '');
+        const data = sortedTs.map((ts) => {
+          let totalTWDAtTs = 0;
+          results.forEach(({ stock, chartData }) => {
+            const fx = stock.market === 'us' ? usdTwdRate : 1;
+            const currentP = stock.price && stock.price > 0 ? stock.price : stock.cost;
+            let pAtTs = currentP;
+
+            if (chartData && Array.isArray(chartData.timestamp) && Array.isArray(chartData.quotes)) {
+              const idx = chartData.timestamp.indexOf(ts);
+              if (idx !== -1 && chartData.quotes[idx] && typeof chartData.quotes[idx] === 'number') {
+                pAtTs = chartData.quotes[idx];
+              }
+            }
+
+            totalTWDAtTs += stock.shares * pAtTs * fx;
+          });
+          return Math.round(totalTWDAtTs);
+        });
+
+        if (labels.length > 0 && data.length > 0) {
+          setRealIntradaySeries({ labels, data });
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchIntradayRealSeries();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [portfolio, usdTwdRate]);
+
   const assetTrendHistory = useMemo(() => {
+    if (realIntradaySeries && realIntradaySeries.data.length > 0) {
+      return realIntradaySeries;
+    }
+
     if (totalValTWD === 0) return { labels: ['09:00', '13:30'], data: [0, 0] };
     const STORAGE_KEY = 'stock_radar_asset_history';
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -858,16 +941,17 @@ export default function App() {
       }
     }
 
-    const nowTimeStr = getTaiwanTimeString().slice(0, 5);
-    const base = prevCloseValTWD > 0 ? prevCloseValTWD : totalValTWD * 0.98;
+    // Format current time into 5-minute minimum interval bucket
+    const now = new Date();
+    const mins5 = Math.floor(now.getMinutes() / 5) * 5;
+    const nowTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(mins5).padStart(2, '0')}`;
+    const base = prevCloseValTWD > 0 ? prevCloseValTWD : totalValTWD;
 
     if (history.length === 0) {
-      const diff = totalValTWD - base;
-      const times = ['09:00', '10:00', '11:00', '12:00', '13:00', '13:25', '現價'];
+      const times = ['09:00', '10:00', '11:00', '12:00', '13:00', nowTimeStr];
       history = times.map((t, i) => {
-        const stepPct = i / (times.length - 1);
-        const noise = (Math.sin(i * 1.5) * 0.002 + stepPct) * diff;
-        return { time: t, val: Math.round(base + noise) };
+        const pct = i / (times.length - 1);
+        return { time: t, val: Math.round(base + (totalValTWD - base) * pct) };
       });
     } else {
       const last = history[history.length - 1];
@@ -877,7 +961,7 @@ export default function App() {
         } else {
           history.push({ time: nowTimeStr, val: Math.round(totalValTWD) });
         }
-        if (history.length > 25) history = history.slice(-25);
+        if (history.length > 30) history = history.slice(-30);
       }
     }
 
@@ -891,7 +975,7 @@ export default function App() {
       labels: history.map((h) => h.time),
       data: history.map((h) => h.val),
     };
-  }, [totalValTWD, prevCloseValTWD]);
+  }, [realIntradaySeries, totalValTWD, prevCloseValTWD]);
 
   const totalProfitTWD = hasMissingPrice ? null : totalValTWD - totalCostTWD;
   const totalROI =
