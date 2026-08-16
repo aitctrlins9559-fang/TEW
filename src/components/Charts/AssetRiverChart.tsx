@@ -111,9 +111,10 @@ export const AssetRiverChart: React.FC<AssetRiverChartProps> = ({
             chartRes.timestamp.forEach((ts: number) => {
               if (ts && !timeMap.has(ts)) {
                 const dt = new Date(ts * 1000);
+                const yyyy = dt.getFullYear();
                 const mm = String(dt.getMonth() + 1).padStart(2, '0');
                 const dd = String(dt.getDate()).padStart(2, '0');
-                timeMap.set(ts, `${mm}/${dd}`);
+                timeMap.set(ts, `${yyyy}/${mm}/${dd}`);
               }
             });
           }
@@ -129,9 +130,10 @@ export const AssetRiverChart: React.FC<AssetRiverChartProps> = ({
           const today = new Date();
           for (let i = weeksRange; i >= 0; i--) {
             const d = new Date(today.getTime() - i * 7 * 86400 * 1000);
+            const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
             const dd = String(d.getDate()).padStart(2, '0');
-            dateLabels.push(`${mm}/${dd}`);
+            dateLabels.push(`${yyyy}/${mm}/${dd}`);
           }
         }
 

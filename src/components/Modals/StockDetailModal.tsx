@@ -168,14 +168,32 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
           {/* Dividends */}
           <div className="bg-amber-500/10 p-4 rounded-2xl border border-amber-500/30 space-y-1.5 shadow-md">
-            <span className="text-[11px] text-amber-300 font-sans block flex items-center gap-1.5 font-bold">
-              <Sparkles className="w-4 h-4 text-amber-400" /> 預估年股息 (殖利率)
-            </span>
-            <div className="text-amber-400 font-mono font-bold text-sm">
-              ${formatMoney(divInfo.annualIncomeTWD, isPrivacy)} ({divInfo.dividendYieldPct.toFixed(1)}%)
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] text-amber-300 font-sans flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-4 h-4 text-amber-400" /> 預估股息 (殖利率)
+              </span>
+              {divInfo.isOfficial ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  官方最新公告
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  次回未公布 (依前次估算)
+                </span>
+              )}
             </div>
-            <div className="text-[10px] text-amber-300/80 font-sans">
-              發放頻率: {divInfo.frequency}
+            <div className="text-amber-400 font-mono font-bold text-sm">
+              ${formatMoney(divInfo.annualIncomeTWD, isPrivacy)} /年 ({divInfo.dividendYieldPct.toFixed(1)}%)
+            </div>
+            <div className="text-[11px] text-emerald-400 font-mono font-bold">
+              預估單次可領: ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)} NT$
+            </div>
+            <div className="text-[10px] text-slate-300 font-sans border-t border-amber-500/20 pt-1 mt-1">
+              {divInfo.isOfficial ? (
+                <span>公告狀態: <strong className="text-emerald-400">官方已正式公告除息日 ({divInfo.exactExDate})</strong></span>
+              ) : (
+                <span>公告狀態: <strong className="text-amber-300">下次配息尚未公布，已依上一次每股配發 ${divInfo.singleDividendPerShare.toFixed(2)} 估算</strong></span>
+              )}
             </div>
           </div>
         </div>

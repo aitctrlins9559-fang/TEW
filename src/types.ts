@@ -25,7 +25,8 @@ export interface StockPosition {
   fetchError?: boolean;
   priceChanged?: 'up' | 'down' | null;
   customExDate?: string; // e.g. "2026/03/18"
-  customDps?: number; // e.g. 0.75
+  customDps?: number; // e.g. 4.04 (annualized DPS)
+  customSingleDps?: number; // e.g. 1.01 (single payout DPS per share)
 }
 
 export interface MarketIndex {

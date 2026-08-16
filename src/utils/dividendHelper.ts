@@ -1,7 +1,8 @@
 import { StockPosition, MarketType } from '../types';
 
 export interface DividendInfo {
-  annualDividendPerShare: number; // in local currency (TWD or USD)
+  singleDividendPerShare: number; // 單次每股配息 (e.g. 1.01)
+  annualDividendPerShare: number; // 年化每股總配息 (e.g. 4.04)
   dividendYieldPct: number; // %
   frequency: '月配息' | '季配息' | '半年配' | '年配息';
   exMonths: number[]; // e.g. [1, 4, 7, 10] for quarterly
@@ -9,26 +10,30 @@ export interface DividendInfo {
   exactExDate?: string; // YYYY/MM/DD
   lastBuyDate?: string; // YYYY/MM/DD
   isOfficial?: boolean;
-  annualIncomeTWD: number;
-  monthlyIncomeTWD: number;
+  announcementStatus: 'official' | 'unannounced';
+  announcementNote: string;
+  singlePayoutTWD: number; // 當次/單季預估可領金額 TWD
+  annualIncomeTWD: number; // 全年預估總配息 TWD
+  monthlyIncomeTWD: number; // 平均每月折算 TWD
 }
 
 export interface KnownDividendProfile {
   annualDps: number; // Dividend per share
   frequency: '月配息' | '季配息' | '半年配' | '年配息';
   exMonths: number[];
+  exactExDate?: string; // YYYY/MM/DD if officially announced
 }
 
-const KNOWN_DIVIDENDS: Record<string, KnownDividendProfile> = {
+export const KNOWN_DIVIDENDS: Record<string, KnownDividendProfile> = {
   // 高股息 ETF
-  '0056': { annualDps: 3.7, frequency: '季配息', exMonths: [1, 4, 7, 10] },
-  '00878': { annualDps: 2.1, frequency: '季配息', exMonths: [2, 5, 8, 11] },
-  '00919': { annualDps: 2.8, frequency: '季配息', exMonths: [3, 6, 9, 12] },
-  '00929': { annualDps: 2.2, frequency: '月配息', exMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+  '0056': { annualDps: 4.2, frequency: '季配息', exMonths: [1, 4, 7, 10] },
+  '00878': { annualDps: 4.04, frequency: '季配息', exMonths: [2, 5, 8, 11], exactExDate: '2026/08/18' }, // 00878 Q3 官方最新公告：2026/08/18 除息 (單季 $1.01)
+  '00919': { annualDps: 2.8, frequency: '季配息', exMonths: [3, 6, 9, 12], exactExDate: '2026/09/18' },
+  '00929': { annualDps: 2.2, frequency: '月配息', exMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], exactExDate: '2026/08/21' },
   '00940': { annualDps: 0.6, frequency: '月配息', exMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
   '00713': { annualDps: 3.5, frequency: '季配息', exMonths: [3, 6, 9, 12] },
-  '00915': { annualDps: 2.5, frequency: '季配息', exMonths: [3, 6, 9, 12] },
-  '00918': { annualDps: 2.6, frequency: '季配息', exMonths: [3, 6, 9, 12] },
+  '00915': { annualDps: 2.8, frequency: '季配息', exMonths: [3, 6, 9, 12] },
+  '00918': { annualDps: 2.8, frequency: '季配息', exMonths: [3, 6, 9, 12] },
   '00934': { annualDps: 1.6, frequency: '月配息', exMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
   '00936': { annualDps: 1.2, frequency: '月配息', exMonths: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
 
@@ -87,62 +92,76 @@ export function getStockDividendInfo(
   } else {
     // Smart fallback estimate based on symbol pattern
     if (symbol.startsWith('009') || symbol.startsWith('008') || symbol.startsWith('007')) {
-      // High Yield ETF estimate (~8.0%)
       annualDps = currentPrice * 0.08;
       frequency = '季配息';
-      exMonths = [3, 6, 9, 12];
+      exMonths = [2, 5, 8, 11];
     } else if (symbol.startsWith('005') || symbol.startsWith('006')) {
-      // Broad Market ETF estimate (~3.5%)
       annualDps = currentPrice * 0.035;
       frequency = '半年配';
       exMonths = [1, 7];
     } else if (isUS) {
-      // US Stock average yield (~1.5%)
       annualDps = currentPrice * 0.015;
       frequency = '季配息';
       exMonths = [3, 6, 9, 12];
     } else {
-      // TW Stock average yield (~4.0%)
       annualDps = currentPrice * 0.04;
       frequency = '年配息';
       exMonths = [7];
     }
   }
 
-  // Override with user custom DPS if specified
-  if (typeof stock.customDps === 'number' && stock.customDps > 0) {
+  const freqMultiplier = frequency === '月配息' ? 12 : frequency === '季配息' ? 4 : frequency === '半年配' ? 2 : 1;
+
+  // Override with user custom single DPS or custom annual DPS if specified
+  if (typeof stock.customSingleDps === 'number' && stock.customSingleDps > 0) {
+    annualDps = stock.customSingleDps * freqMultiplier;
+  } else if (typeof stock.customDps === 'number' && stock.customDps > 0) {
     annualDps = stock.customDps;
   }
 
+  const singleDps = annualDps / freqMultiplier;
   const dividendYieldPct = currentPrice > 0 ? (annualDps / currentPrice) * 100 : 0;
   const annualIncomeTWD = stock.shares * annualDps * marketFx;
+  const singlePayoutTWD = stock.shares * singleDps * marketFx;
   const monthlyIncomeTWD = annualIncomeTWD / 12;
 
   // Calculate next ex-dividend date / month string
-  let exactExDate: string | undefined = stock.customExDate;
+  let exactExDate: string | undefined = stock.customExDate || KNOWN_DIVIDENDS[symbol]?.exactExDate;
   let lastBuyDate: string | undefined;
   let isOfficial = false;
 
-  if (stock.customExDate) {
-    exactExDate = stock.customExDate;
-    isOfficial = true;
-    // Compute last buy date (1 day before exDate)
-    const dt = new Date(stock.customExDate);
-    if (!isNaN(dt.getTime())) {
-      dt.setDate(dt.getDate() - 1);
-      const yyyy = dt.getFullYear();
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const dd = String(dt.getDate()).padStart(2, '0');
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  if (exactExDate) {
+    const exDt = new Date(exactExDate.replace(/\//g, '-'));
+    if (!isNaN(exDt.getTime()) && exDt >= todayMidnight) {
+      isOfficial = true;
+      const buyDt = new Date(exDt);
+      buyDt.setDate(buyDt.getDate() - 1);
+      const yyyy = buyDt.getFullYear();
+      const mm = String(buyDt.getMonth() + 1).padStart(2, '0');
+      const dd = String(buyDt.getDate()).padStart(2, '0');
       lastBuyDate = `${yyyy}/${mm}/${dd}`;
+    } else {
+      // Ex-date passed, next period is unannounced
+      exactExDate = undefined;
+      isOfficial = false;
     }
   }
 
-  const currentMonth = new Date().getMonth() + 1; // 1 ~ 12
+  const currentMonth = today.getMonth() + 1; // 1 ~ 12
   const nextExM = exMonths.find((m) => m >= currentMonth) || exMonths[0];
-  const nextYear = nextExM < currentMonth ? new Date().getFullYear() + 1 : new Date().getFullYear();
+  const nextYear = nextExM < currentMonth ? today.getFullYear() + 1 : today.getFullYear();
   const nextExMonthStr = exactExDate ? exactExDate : `${nextYear}/${nextExM < 10 ? '0' : ''}${nextExM}月`;
 
+  const announcementStatus: 'official' | 'unannounced' = isOfficial ? 'official' : 'unannounced';
+  const announcementNote = isOfficial
+    ? `官方最新公告 (${exactExDate} 除息)`
+    : `未公布 (依前次每股 $${singleDps.toFixed(2)} 估算)`;
+
   return {
+    singleDividendPerShare: singleDps,
     annualDividendPerShare: annualDps,
     dividendYieldPct,
     frequency,
@@ -151,6 +170,9 @@ export function getStockDividendInfo(
     exactExDate,
     lastBuyDate,
     isOfficial,
+    announcementStatus,
+    announcementNote,
+    singlePayoutTWD,
     annualIncomeTWD,
     monthlyIncomeTWD,
   };
@@ -169,6 +191,9 @@ export interface PortfolioDividendSummary {
     exactExDate?: string;
     lastBuyDate?: string;
     isOfficial?: boolean;
+    announcementStatus: 'official' | 'unannounced';
+    announcementNote: string;
+    singleDps: number;
     estAmountTWD: number;
   }>;
 }
@@ -213,6 +238,9 @@ export function calculatePortfolioDividends(
         exactExDate: info.exactExDate,
         lastBuyDate: info.lastBuyDate,
         isOfficial: info.isOfficial,
+        announcementStatus: info.announcementStatus,
+        announcementNote: info.announcementNote,
+        singleDps: info.singleDividendPerShare,
         estAmountTWD: info.annualIncomeTWD / info.exMonths.length,
       });
     }

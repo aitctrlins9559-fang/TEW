@@ -376,6 +376,9 @@ export const StockTable: React.FC<StockTableProps> = ({
                             : `${itemProfitTWD >= 0 ? '+' : ''}${formatMoney(itemProfitTWD, isPrivacy)}`}
                         </span>
                       </div>
+                      <div className="text-[10px] text-slate-500 font-mono mt-0.5 font-sans">
+                        成本 <span className="font-mono text-slate-400">${formatMoney(itemCostTWD, isPrivacy)}</span>
+                      </div>
                     </div>
 
                     {/* Chevron Indicator */}
@@ -504,7 +507,11 @@ export const StockTable: React.FC<StockTableProps> = ({
 
                       {/* Market Value */}
                       <td className="py-5 px-6 font-mono font-bold text-white text-base whitespace-nowrap tabular-nums">
-                        {itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}
+                        <div>{itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}</div>
+                        <div className="text-[11px] text-slate-400 font-normal font-sans mt-0.5 flex items-center gap-1">
+                          <span>買入成本</span>
+                          <span className="font-mono text-slate-300 font-semibold">${formatMoney(itemCostTWD, isPrivacy)}</span>
+                        </div>
                       </td>
 
                       {/* Profit/Loss */}
@@ -523,10 +530,18 @@ export const StockTable: React.FC<StockTableProps> = ({
 
                       {/* Estimated Dividend / Yield */}
                       <td className="py-5 px-6 font-mono text-amber-400 whitespace-nowrap tabular-nums">
-                        <div className="font-bold text-sm">
+                        <div className="font-bold text-sm flex items-center gap-1.5">
                           ${formatMoney(divInfo.annualIncomeTWD, isPrivacy)} <span className="text-[10px] text-slate-400 font-sans">/年</span>
+                          {divInfo.isOfficial ? (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-sans font-bold">已公告</span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-sans font-bold">未公布(估算)</span>
+                          )}
                         </div>
-                        <div className="text-xs text-amber-400/90 font-semibold">
+                        <div className="text-[11px] text-emerald-400 font-semibold">
+                          單次 ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)}
+                        </div>
+                        <div className="text-[10px] text-amber-400/80 font-medium">
                           {divInfo.dividendYieldPct.toFixed(1)}% <span className="text-[9px] text-slate-500 font-sans">({divInfo.frequency})</span>
                         </div>
                       </td>

@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { StockPosition } from '../types';
-import { calculatePortfolioDividends, getStockDividendInfo } from '../utils/dividendHelper';
+import { calculatePortfolioDividends, getStockDividendInfo, KNOWN_DIVIDENDS } from '../utils/dividendHelper';
 import { formatMoney } from '../utils/format';
 import { playClickSound, playSuccessSound } from '../utils/audio';
 import { apiFetchDividends, DividendEventItem } from '../utils/apiClient';
@@ -48,12 +48,13 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   const [monthlyContribution, setMonthlyContribution] = useState<number>(10000);
 
   // Live Official Dividend Events State
-  const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number }>>({});
+  const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number; exDateTs: number }>>({});
   const [isFetchingDividends, setIsFetchingDividends] = useState<boolean>(false);
 
   // Custom Ex-Date Edit Modal State
   const [editingStock, setEditingStock] = useState<StockPosition | null>(null);
   const [editExDate, setEditExDate] = useState<string>('');
+  const [editSingleDps, setEditSingleDps] = useState<string>('');
   const [editDps, setEditDps] = useState<string>('');
 
   // Fetch Live Official Ex-Dividend Events
@@ -63,11 +64,11 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
     try {
       const symbols = portfolio.map((p) => p.symbol);
       const events = await apiFetchDividends(symbols);
-      const map: Record<string, { exDate: string; amount: number }> = {};
+      const map: Record<string, { exDate: string; amount: number; exDateTs: number }> = {};
       events.forEach((ev) => {
         const key = ev.symbol.toUpperCase();
-        if (!map[key] || ev.exDateTs > (new Date(map[key].exDate).getTime() / 1000 || 0)) {
-          map[key] = { exDate: ev.exDate, amount: ev.amount };
+        if (!map[key] || ev.exDateTs > map[key].exDateTs) {
+          map[key] = { exDate: ev.exDate, amount: ev.amount, exDateTs: ev.exDateTs };
         }
       });
       setOfficialEvents(map);
@@ -87,22 +88,34 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
     const symKey = stock.symbol.toUpperCase();
     const liveEvent = officialEvents[symKey];
     
-    // Custom override takes priority, then live official API, then static fallback
     let customExDate = stock.customExDate;
     let customDps = stock.customDps;
+    let customSingleDps = stock.customSingleDps;
 
-    if (!customExDate && liveEvent) {
-      customExDate = liveEvent.exDate;
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    // Only apply liveEvent.exDate if it's in the FUTURE or TODAY, and no customExDate is explicitly set
+    if (!customExDate && liveEvent && liveEvent.exDate) {
+      const liveDt = new Date(liveEvent.exDate.replace(/\//g, '-'));
+      if (!isNaN(liveDt.getTime()) && liveDt >= todayMidnight) {
+        customExDate = liveEvent.exDate;
+      }
     }
-    if (!customDps && liveEvent && liveEvent.amount > 0) {
-      // If live event amount is single dividend payout, estimate annual DPS based on market/type
-      customDps = liveEvent.amount * (stock.market === 'us' ? 4 : 1);
+
+    // Only apply liveEvent.amount if stock is NOT in KNOWN_DIVIDENDS and user didn't set custom DPS
+    if (!customDps && !customSingleDps && !KNOWN_DIVIDENDS[symKey] && liveEvent && liveEvent.amount > 0) {
+      const stockInfo = getStockDividendInfo(stock, usdTwdRate);
+      const mult = stockInfo.exMonths.length > 0 ? stockInfo.exMonths.length : 1;
+      customSingleDps = liveEvent.amount;
+      customDps = liveEvent.amount * mult;
     }
 
     return {
       ...stock,
       customExDate,
       customDps,
+      customSingleDps,
     };
   });
 
@@ -113,7 +126,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   let totalNhiFeeTWD = 0;
   let totalUsTaxTWD = 0;
 
-  portfolio.forEach((stock) => {
+  enrichedPortfolio.forEach((stock) => {
     const isUS = stock.market === 'us';
     const info = getStockDividendInfo(stock, usdTwdRate);
     const payoutPerEx = info.exMonths.length > 0 ? info.annualIncomeTWD / info.exMonths.length : info.annualIncomeTWD;
@@ -461,9 +474,13 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                     <div>
                       <div className="text-sm font-bold text-white flex items-center gap-1.5">
                         {item.name}
-                        {isOfficial && (
+                        {isOfficial ? (
                           <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                             官方最新公告
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            未公布 (前次估算)
                           </span>
                         )}
                       </div>
@@ -477,7 +494,9 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                           if (originalStock) {
                             setEditingStock(originalStock);
                             setEditExDate(originalStock.customExDate || item.exactExDate || '');
-                            setEditDps(originalStock.customDps ? String(originalStock.customDps) : '');
+                            const sInfo = getStockDividendInfo(originalStock, usdTwdRate);
+                            setEditSingleDps(originalStock.customSingleDps ? String(originalStock.customSingleDps) : String(sInfo.singleDividendPerShare));
+                            setEditDps(originalStock.customDps ? String(originalStock.customDps) : String(sInfo.annualDividendPerShare));
                           }
                         }}
                         title="手動校正/輸入官方公告日期"
@@ -502,16 +521,23 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                   {/* Dates Details */}
                   <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-400">公告除息日 (Ex-Date):</span>
-                      <span className="text-emerald-400 font-bold">
-                        {item.exactExDate || item.nextExMonthStr}
+                      <span className="text-[10px] text-slate-400">除息交易日:</span>
+                      <span className={isOfficial ? "text-emerald-400 font-bold" : "text-amber-300 font-bold"}>
+                        {item.exactExDate ? item.exactExDate : `${item.nextExMonthStr}`}
                       </span>
                     </div>
 
-                    {item.lastBuyDate && (
+                    {item.lastBuyDate ? (
                       <div className="flex justify-between items-center border-t border-white/5 pt-1">
                         <span className="text-[10px] text-amber-300">最後買進日:</span>
                         <span className="text-amber-400 font-bold">{item.lastBuyDate} 前</span>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1 flex justify-between items-center font-sans">
+                        <span>配息狀態:</span>
+                        <span className="text-amber-300/90 font-medium">
+                          尚未公布 (依前次 ${item.singleDps.toFixed(2)}/股 估算)
+                        </span>
                       </div>
                     )}
                   </div>
@@ -648,10 +674,15 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
             </div>
 
             {/* Monthly Contribution Slider */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-slate-300 font-bold">
-                <span>每月額外定期定額加碼:</span>
-                <span className="text-emerald-400 font-mono">${monthlyContribution.toLocaleString()} NT$</span>
+            <div className="space-y-2 bg-slate-950/60 p-3.5 rounded-2xl border border-white/5">
+              <div className="flex justify-between items-center text-xs sm:text-sm font-bold">
+                <span className="text-slate-200 flex items-center gap-1.5">
+                  全投資組合每月定期定額總投入：
+                  <span className="text-[10px] font-normal text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    整體組合總額
+                  </span>
+                </span>
+                <span className="text-emerald-400 font-mono text-base font-black">${monthlyContribution.toLocaleString()} NT$/月</span>
               </div>
               <input
                 type="range"
@@ -660,8 +691,18 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                 step={5000}
                 value={monthlyContribution}
                 onChange={(e) => setMonthlyContribution(Number(e.target.value))}
-                className="w-full accent-emerald-500 bg-slate-800 rounded-lg h-2"
+                className="w-full accent-emerald-500 bg-slate-800 rounded-lg h-2 cursor-pointer"
               />
+              <div className="text-[11px] text-slate-400 leading-relaxed font-sans flex flex-col sm:flex-row justify-between gap-1 pt-1.5 border-t border-white/5">
+                <span>
+                  💡 <strong>資金明確定義：</strong>此金額為<strong>「全投資組合每月新投入之總資金」</strong>（依當前持股價值比例分配投入），非單一股票金額。
+                </span>
+                {portfolio.length > 0 && monthlyContribution > 0 && (
+                  <span className="text-emerald-300 font-mono shrink-0">
+                    目前 {portfolio.length} 檔持股，平均每檔約配分 ${Math.round(monthlyContribution / portfolio.length).toLocaleString()} NT$/月
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -686,6 +727,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
               </div>
 
               <div className="pt-2 border-t border-white/5 text-[11px] text-slate-400 space-y-1 font-mono">
+                <div>每月新加碼資金: ${monthlyContribution.toLocaleString()} NT$ (全組合總額)</div>
                 <div>{dripYears} 年累積落袋股息: ${Math.round(dripResult.totalCashReceivedNoDrip).toLocaleString()}</div>
                 <div>{dripYears} 年後預估總資產: ${Math.round(dripResult.assetNoDrip / 10000).toLocaleString()} 萬</div>
               </div>
@@ -715,6 +757,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                 <div className="text-emerald-300 font-bold">
                   複利增幅效益：每月多領 +${Math.round(dripResult.dripBonusIncome).toLocaleString()} NT$
                 </div>
+                <div>每月新加碼資金: ${monthlyContribution.toLocaleString()} NT$ (全組合總額)</div>
                 <div>{dripYears} 年後預估總資產: ${Math.round(dripResult.assetDrip / 10000).toLocaleString()} 萬</div>
               </div>
             </div>
@@ -733,82 +776,149 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
       )}
 
       {/* Custom Ex-Date / DPS Edit Modal */}
-      {editingStock && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
-          onClick={() => setEditingStock(null)}
-        >
+      {editingStock && (() => {
+        const sInfo = getStockDividendInfo(editingStock, usdTwdRate);
+        const freq = sInfo.frequency;
+        const mult = sInfo.exMonths.length > 0 ? sInfo.exMonths.length : 1;
+
+        const singleVal = editSingleDps !== '' ? parseFloat(editSingleDps) || 0 : (editDps !== '' ? (parseFloat(editDps) || 0) / mult : sInfo.singleDividendPerShare);
+        const annualVal = editDps !== '' ? parseFloat(editDps) || 0 : singleVal * mult;
+
+        const estSinglePayout = editingStock.shares * singleVal * (editingStock.market === 'us' ? usdTwdRate : 1);
+        const estAnnualTotal = editingStock.shares * annualVal * (editingStock.market === 'us' ? usdTwdRate : 1);
+        const estMonthlyAvg = estAnnualTotal / 12;
+
+        return (
           <div
-            className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+            onClick={() => setEditingStock(null)}
           >
-            <div className="flex justify-between items-center border-b border-white/10 pb-3">
-              <div>
-                <h4 className="font-bold text-white text-base">校正官方公告除息日與派息金額</h4>
-                <p className="text-xs text-sky-400 font-mono">{editingStock.symbol} - {editingStock.name}</p>
-              </div>
-              <button
-                onClick={() => setEditingStock(null)}
-                className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-300 font-bold mb-1">官方重訊公告除息日 (Ex-Date)</label>
-                <input
-                  type="date"
-                  value={editExDate}
-                  onChange={(e) => setEditExDate(e.target.value)}
-                  className="w-full bg-slate-950 text-white border border-white/10 rounded-xl px-3.5 py-2.5 font-mono font-bold outline-none focus:border-emerald-400"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">例如：2026-03-18 (若清空則還原官方自動查詢)</p>
+            <div
+              className="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                <div>
+                  <h4 className="font-bold text-white text-base">校正除息公告與配息金額</h4>
+                  <p className="text-xs text-sky-400 font-mono">{editingStock.symbol} - {editingStock.name}</p>
+                </div>
+                <button
+                  onClick={() => setEditingStock(null)}
+                  className="p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-bold mb-1">年度每股配息總額 (DPS)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="例如: 2.1"
-                  value={editDps}
-                  onChange={(e) => setEditDps(e.target.value)}
-                  className="w-full bg-slate-950 text-emerald-400 border border-white/10 rounded-xl px-3.5 py-2.5 font-mono font-bold outline-none focus:border-emerald-400"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">填寫每股年度發放金額</p>
-              </div>
-            </div>
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">官方公告除息日 (Ex-Date)</label>
+                  <input
+                    type="date"
+                    value={editExDate}
+                    onChange={(e) => setEditExDate(e.target.value)}
+                    className="w-full bg-slate-950 text-white border border-white/10 rounded-xl px-3.5 py-2.5 font-mono font-bold outline-none focus:border-emerald-400"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">例如: 2026-03-18 (若清空則自動帶入官方重訊)</p>
+                </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setEditingStock(null)}
-                className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 font-bold text-xs transition"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => {
-                  playSuccessSound();
-                  const updatedStock: StockPosition = {
-                    ...editingStock,
-                    customExDate: editExDate.replace(/-/g, '/').trim() || undefined,
-                    customDps: editDps ? parseFloat(editDps) : undefined,
-                  };
-                  if (onUpdateStock) {
-                    onUpdateStock(updatedStock);
-                  }
-                  setEditingStock(null);
-                }}
-                className="px-5 py-2 rounded-xl text-slate-950 font-bold bg-emerald-400 hover:bg-emerald-300 text-xs shadow-md transition"
-              >
-                儲存校正
-              </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-emerald-400 font-bold mb-1">單次/當季每股配息</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={`例如: ${sInfo.singleDividendPerShare}`}
+                      value={editSingleDps}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditSingleDps(val);
+                        if (val !== '') {
+                          const num = parseFloat(val) || 0;
+                          setEditDps(String(Number((num * mult).toFixed(4))));
+                        } else {
+                          setEditDps('');
+                        }
+                      }}
+                      className="w-full bg-slate-950 text-emerald-400 border border-emerald-500/30 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-emerald-400"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">如 00878 每股配 1.01 元</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-amber-300 font-bold mb-1">年化每股總配息 (DPS)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={`例如: ${sInfo.annualDividendPerShare}`}
+                      value={editDps}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditDps(val);
+                        if (val !== '') {
+                          const num = parseFloat(val) || 0;
+                          setEditSingleDps(String(Number((num / mult).toFixed(4))));
+                        } else {
+                          setEditSingleDps('');
+                        }
+                      }}
+                      className="w-full bg-slate-950 text-amber-300 border border-white/10 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-amber-400"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">({freq} x {mult} 次/年)</p>
+                  </div>
+                </div>
+
+                {/* Live Realtime Portfolio Impact Box */}
+                <div className="bg-slate-950/80 p-3 rounded-2xl border border-emerald-500/30 space-y-1.5 font-mono">
+                  <div className="text-[11px] text-slate-400 flex justify-between font-sans">
+                    <span>持股試算對照 ({editingStock.shares.toLocaleString()} 股)</span>
+                    <span className="text-emerald-400 font-bold">即時試算</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-200">
+                    <span>單次/當季預估可領：</span>
+                    <span className="text-emerald-400 font-bold text-sm">${Math.round(estSinglePayout).toLocaleString()} NT$</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300">
+                    <span>全年度預估總金額：</span>
+                    <span className="text-amber-300 font-bold">${Math.round(estAnnualTotal).toLocaleString()} NT$</span>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-300 border-t border-white/10 pt-1">
+                    <span>折算平均每月收益：</span>
+                    <span className="text-sky-300 font-bold">${Math.round(estMonthlyAvg).toLocaleString()} NT$/月</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setEditingStock(null)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 font-bold text-xs transition"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    playSuccessSound();
+                    const updatedStock: StockPosition = {
+                      ...editingStock,
+                      customExDate: editExDate.replace(/-/g, '/').trim() || undefined,
+                      customSingleDps: editSingleDps !== '' ? parseFloat(editSingleDps) : undefined,
+                      customDps: editDps !== '' ? parseFloat(editDps) : undefined,
+                    };
+                    if (onUpdateStock) {
+                      onUpdateStock(updatedStock);
+                    }
+                    setEditingStock(null);
+                  }}
+                  className="px-5 py-2 rounded-xl text-slate-950 font-bold bg-emerald-400 hover:bg-emerald-300 text-xs shadow-md transition"
+                >
+                  儲存校正
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
