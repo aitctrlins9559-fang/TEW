@@ -137,6 +137,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             <div className="text-lg font-bold font-mono text-white">
               {marketValTWD === null ? '--' : formatMoney(marketValTWD, isPrivacy)}
             </div>
+            <div className="text-[11px] text-slate-400 font-mono border-t border-white/5 pt-1 mt-1">
+              買入總成本: <span className="text-slate-200 font-bold">${formatMoney(costTWD, isPrivacy)}</span>
+            </div>
           </div>
 
           {/* Profit & Loss */}
