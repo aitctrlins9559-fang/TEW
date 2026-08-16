@@ -27,6 +27,8 @@ export interface StockPosition {
   customExDate?: string; // e.g. "2026/03/18"
   customDps?: number; // e.g. 4.04 (annualized DPS)
   customSingleDps?: number; // e.g. 1.01 (single payout DPS per share)
+  customStockDps?: number; // e.g. 0.3 (股票股利 元/股)
+  pendingStockShares?: number; // 待撥股票股利股數 (Ex-rights pending shares)
 }
 
 export interface MarketIndex {

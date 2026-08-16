@@ -17,6 +17,11 @@ import {
   Edit3,
   CheckCircle2,
   X,
+  Grid,
+  ListFilter,
+  Coins,
+  Gift,
+  Tag,
 } from 'lucide-react';
 import { StockPosition } from '../types';
 import { calculatePortfolioDividends, getStockDividendInfo, KNOWN_DIVIDENDS } from '../utils/dividendHelper';
@@ -39,6 +44,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
 }) => {
   const [monthlyGoalTWD, setMonthlyGoalTWD] = useState<number>(30000); // Default Goal: $30,000 NTD/month
   const [activeTab, setActiveTab] = useState<'overview' | 'calendar' | 'goal' | 'drip'>('overview');
+  const [calendarView, setCalendarView] = useState<'grid' | 'table'>('grid');
   
   // Tax Mode: 'gross' (稅前) vs 'net' (稅後淨領: 台股二代健保 2.11% + 美股預扣稅 30%)
   const [taxMode, setTaxMode] = useState<'gross' | 'net'>('gross');
@@ -48,7 +54,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   const [monthlyContribution, setMonthlyContribution] = useState<number>(10000);
 
   // Live Official Dividend Events State
-  const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number; exDateTs: number }>>({});
+  const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }>>({});
   const [isFetchingDividends, setIsFetchingDividends] = useState<boolean>(false);
 
   // Custom Ex-Date Edit Modal State
@@ -56,6 +62,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   const [editExDate, setEditExDate] = useState<string>('');
   const [editSingleDps, setEditSingleDps] = useState<string>('');
   const [editDps, setEditDps] = useState<string>('');
+  const [editStockDps, setEditStockDps] = useState<string>('');
 
   // Fetch Live Official Ex-Dividend Events
   const fetchLiveDividends = async () => {
@@ -64,11 +71,11 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
     try {
       const symbols = portfolio.map((p) => p.symbol);
       const events = await apiFetchDividends(symbols);
-      const map: Record<string, { exDate: string; amount: number; exDateTs: number }> = {};
+      const map: Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }> = {};
       events.forEach((ev) => {
         const key = ev.symbol.toUpperCase();
         if (!map[key] || ev.exDateTs > map[key].exDateTs) {
-          map[key] = { exDate: ev.exDate, amount: ev.amount, exDateTs: ev.exDateTs };
+          map[key] = { exDate: ev.exDate, amount: ev.amount, stockDps: ev.stockDps, exDateTs: ev.exDateTs };
         }
       });
       setOfficialEvents(map);
@@ -91,6 +98,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
     let customExDate = stock.customExDate;
     let customDps = stock.customDps;
     let customSingleDps = stock.customSingleDps;
+    let customStockDps = stock.customStockDps;
 
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -103,12 +111,21 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
       }
     }
 
-    // Only apply liveEvent.amount if stock is NOT in KNOWN_DIVIDENDS and user didn't set custom DPS
-    if (!customDps && !customSingleDps && !KNOWN_DIVIDENDS[symKey] && liveEvent && liveEvent.amount > 0) {
-      const stockInfo = getStockDividendInfo(stock, usdTwdRate);
-      const mult = stockInfo.exMonths.length > 0 ? stockInfo.exMonths.length : 1;
-      customSingleDps = liveEvent.amount;
-      customDps = liveEvent.amount * mult;
+    if (liveEvent) {
+      // Only apply liveEvent.amount if user didn't set custom DPS
+      if (!customDps && !customSingleDps && (!KNOWN_DIVIDENDS[symKey] || liveEvent.amount > 0)) {
+        if (liveEvent.amount > 0) {
+          const stockInfo = getStockDividendInfo(stock, usdTwdRate);
+          const mult = stockInfo.exMonths.length > 0 ? stockInfo.exMonths.length : 1;
+          customSingleDps = liveEvent.amount;
+          customDps = liveEvent.amount * mult;
+        }
+      }
+
+      // Apply liveEvent.stockDps if present and user didn't explicitly override customStockDps
+      if (customStockDps === undefined && typeof liveEvent.stockDps === 'number' && liveEvent.stockDps > 0) {
+        customStockDps = liveEvent.stockDps;
+      }
     }
 
     return {
@@ -116,6 +133,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
       customExDate,
       customDps,
       customSingleDps,
+      customStockDps,
     };
   });
 
@@ -341,7 +359,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
           <div className="text-[11px] text-slate-400 font-mono">
             {taxMode === 'gross'
               ? '相當於每年多領一個月獎金'
-              : `已扣抵健保約 $${Math.round(totalNhiFeeTWD).toLocaleString()} / 美稅 $${Math.round(totalUsTaxTWD).toLocaleString()}`}
+              : `已扣抵健保約 ${Math.round(totalNhiFeeTWD).toLocaleString()} / 美稅 ${Math.round(totalUsTaxTWD).toLocaleString()}`}
           </div>
         </div>
 
@@ -372,6 +390,29 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Ex-Rights Pending Stock Assets Banner */}
+      {summary.totalPendingStockValueTWD > 0 && (
+        <div className="bg-purple-950/40 border border-purple-500/30 p-3.5 sm:p-4 rounded-2xl text-xs text-purple-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="space-y-1">
+            <div className="font-bold text-sm text-purple-300 flex items-center gap-2">
+              <span>🎁 除權待撥股票資產 (Ex-Rights Pending Stock Assets)</span>
+              <span className="text-[10px] bg-purple-500/30 border border-purple-400/40 text-purple-200 px-2 py-0.5 rounded font-mono">
+                +{summary.totalPendingStockShares.toLocaleString()} 股待撥
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              除權日後至配股撥券入帳日前，待領取之股票市值已自動試算，確保除權後整體資產價值保持一致。
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-[10px] text-purple-300 font-sans">待撥股票總估值</div>
+            <div className="text-lg font-black font-mono text-purple-200">
+              ${formatMoney(summary.totalPendingStockValueTWD, isPrivacy)} <span className="text-xs font-sans">NT$</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Overview & 12-Month Cashflow Bar Chart */}
       {activeTab === 'overview' && (
@@ -432,22 +473,51 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
 
       {/* Tab 2: Upcoming Ex-Dividend Calendar */}
       {activeTab === 'calendar' && (
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div className="text-xs font-bold text-slate-300 flex items-center gap-2">
               <BellRing className="w-4 h-4 text-emerald-400" /> 除權息公告日曆與最後買進日對照表
             </div>
-            <button
-              onClick={() => {
-                playClickSound();
-                fetchLiveDividends();
-              }}
-              disabled={isFetchingDividends}
-              className="text-xs text-sky-400 font-bold bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-xl border border-sky-500/30 flex items-center gap-1.5 transition btn-interact disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isFetchingDividends ? 'animate-spin' : ''}`} />
-              {isFetchingDividends ? '抓取證交所/官方公告中...' : '重新整理官方最新公告日'}
-            </button>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              {/* View Switcher: Grid vs Table */}
+              <div className="bg-slate-950 p-1 rounded-xl border border-white/10 flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setCalendarView('grid');
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    calendarView === 'grid' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Grid className="w-3.5 h-3.5" /> 卡片
+                </button>
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    setCalendarView('table');
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                    calendarView === 'table' ? 'bg-emerald-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <ListFilter className="w-3.5 h-3.5" /> 清單
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  playClickSound();
+                  fetchLiveDividends();
+                }}
+                disabled={isFetchingDividends}
+                className="text-xs text-sky-400 font-bold bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-xl border border-sky-500/30 flex items-center gap-1.5 transition btn-interact disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingDividends ? 'animate-spin' : ''}`} />
+                {isFetchingDividends ? '抓取證交所/官方公告中...' : '重新整理官方最新公告日'}
+              </button>
+            </div>
           </div>
 
           <div className="bg-slate-950/80 border border-white/10 p-3.5 rounded-2xl text-xs text-slate-300 space-y-1.5">
@@ -455,109 +525,301 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> 官方公告日期與最後買進日說明：
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              本頁面已同步連接台美股官方除權息資料庫。已發布重訊公告者將標示為<strong className="text-emerald-400">「官方最新公告」</strong>；欲參與領息者請務必於<strong className="text-amber-400">「最後買進日」</strong>盤後交易結束前持有該標的。若投信尚未公布新一期除息重訊，您可以點選卡片右上角的<strong className="text-sky-400">「校正/手動填寫」</strong>按鈕直接輸入官方除息日。
+              本頁面已同步連接台美股官方除權息資料庫。已發布重訊公告者將標示為<strong className="text-emerald-400">「官方最新公告」</strong>；欲參與領息者請務必於<strong className="text-amber-400">「最後買進日」</strong>盤後交易結束前持有該標的。若投信或公司尚未公布新一期重訊，點選卡片右上角的<strong className="text-sky-400">「校正/手動填寫」</strong>按鈕即可輸入官方公告資訊。
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {summary.upcomingReminders.map((item, idx) => {
-              const isOverNhiThreshold = item.estAmountTWD >= 20000;
-              const originalStock = portfolio.find((p) => p.symbol.toUpperCase() === item.symbol.toUpperCase());
-              const isOfficial = item.isOfficial || !!item.exactExDate;
+          {/* Grid Cards View */}
+          {calendarView === 'grid' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {summary.upcomingReminders.map((item, idx) => {
+                const isOverNhiThreshold = item.estAmountTWD >= 20000;
+                const originalStock = portfolio.find((p) => p.symbol.toUpperCase() === item.symbol.toUpperCase());
+                const isOfficial = item.isOfficial || !!item.exactExDate;
+                const sInfo = originalStock ? getStockDividendInfo(originalStock, usdTwdRate) : null;
 
-              return (
-                <div
-                  key={idx}
-                  className="bg-slate-900/90 p-4 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-3 relative group"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                        {item.name}
-                        {isOfficial ? (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            官方最新公告
+                return (
+                  <div
+                    key={idx}
+                    className="bg-slate-900/90 p-4 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition space-y-3 relative group shadow-lg flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      {/* Header */}
+                      <div className="flex justify-between items-start gap-2 border-b border-white/5 pb-2.5">
+                        <div>
+                          <div className="text-sm font-bold text-white flex items-center gap-1.5 flex-wrap">
+                            <span>{item.name}</span>
+                            <span className="text-[11px] font-mono text-sky-400 bg-sky-950/60 px-1.5 py-0.2 rounded border border-sky-500/20">
+                              {item.symbol}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            {/* Type Tag */}
+                            {item.stockDps > 0 && item.singleDps > 0 ? (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-0.5">
+                                <Coins className="w-3 h-3 text-purple-400" /> 除權息 (現金+股票)
+                              </span>
+                            ) : item.stockDps > 0 ? (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-0.5">
+                                <Gift className="w-3 h-3 text-purple-400" /> 除權 (純配股)
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-0.5">
+                                <DollarSign className="w-3 h-3 text-emerald-400" /> 除息 (純現金)
+                              </span>
+                            )}
+
+                            {isOfficial ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                證交所公告
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                預估 (未公告)
+                              </span>
+                            )}
+
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-white/10">
+                              {item.frequency}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              playClickSound();
+                              if (originalStock) {
+                                setEditingStock(originalStock);
+                                setEditExDate(originalStock.customExDate || item.exactExDate || '');
+                                const stockInfo = getStockDividendInfo(originalStock, usdTwdRate);
+                                setEditSingleDps(originalStock.customSingleDps ? String(originalStock.customSingleDps) : String(stockInfo.singleDividendPerShare));
+                                setEditDps(originalStock.customDps ? String(originalStock.customDps) : String(stockInfo.annualDividendPerShare));
+                                setEditStockDps(originalStock.customStockDps !== undefined ? String(originalStock.customStockDps) : String(stockInfo.stockDps || ''));
+                              }
+                            }}
+                            title="手動校正/輸入官方公告日期與股利"
+                            className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-sky-300 hover:bg-slate-700 transition border border-white/10"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Per Share Distribution Details */}
+                      <div className="bg-slate-950/80 p-2.5 rounded-xl border border-emerald-500/20 space-y-2">
+                        <div className="text-[10px] font-bold text-slate-400 flex items-center justify-between border-b border-white/5 pb-1">
+                          <span>每股分派金額明細 (Per Share)</span>
+                          {sInfo && <span className="text-[10px] font-mono text-emerald-400">殖利率 ~{sInfo.dividendYieldPct.toFixed(2)}%</span>}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                          {/* Cash DPS */}
+                          <div className="bg-emerald-950/30 border border-emerald-500/20 p-2 rounded-lg">
+                            <div className="text-[10px] text-emerald-400 font-sans font-medium">💵 每股現金股利 (配息)</div>
+                            <div className="text-sm font-black text-emerald-300 mt-0.5">
+                              ${item.singleDps.toFixed(2)} <span className="text-[10px] font-normal text-slate-400">元/股</span>
+                            </div>
+                            {originalStock?.market !== 'us' && (
+                              <div className="text-[9px] text-slate-400 font-sans mt-0.5">
+                                換算每張 ${Math.round(item.singleDps * 1000).toLocaleString()} 元
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Stock DPS */}
+                          <div className={`p-2 rounded-lg ${item.stockDps > 0 ? 'bg-purple-950/40 border border-purple-500/30' : 'bg-slate-900/40 border border-white/5 opacity-60'}`}>
+                            <div className="text-[10px] text-purple-300 font-sans font-medium">🎁 每股股票股利 (配股)</div>
+                            <div className="text-sm font-black text-purple-200 mt-0.5">
+                              {item.stockDps > 0 ? `${item.stockDps.toFixed(2)} 元/股` : '0 元 (無配股)'}
+                            </div>
+                            {item.stockDps > 0 && (
+                              <div className="text-[9px] text-purple-300/80 font-sans mt-0.5">
+                                配股率 {(item.stockDps * 10).toFixed(1)}% (每張配 {Math.round(item.stockDps * 100)} 股)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Important Schedule Dates */}
+                      <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-slate-400">除權息交易日:</span>
+                          <span className={isOfficial ? "text-emerald-400 font-bold" : "text-amber-300 font-bold"}>
+                            {item.exactExDate ? item.exactExDate : `${item.nextExMonthStr}`}
                           </span>
+                        </div>
+
+                        {item.lastBuyDate ? (
+                          <div className="flex justify-between items-center border-t border-white/5 pt-1">
+                            <span className="text-[10px] text-amber-300 font-bold">最後買進日:</span>
+                            <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                              {item.lastBuyDate} 盤後前
+                            </span>
+                          </div>
                         ) : (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            未公布 (前次估算)
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs font-mono text-sky-400">{item.symbol}</div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => {
-                          playClickSound();
-                          if (originalStock) {
-                            setEditingStock(originalStock);
-                            setEditExDate(originalStock.customExDate || item.exactExDate || '');
-                            const sInfo = getStockDividendInfo(originalStock, usdTwdRate);
-                            setEditSingleDps(originalStock.customSingleDps ? String(originalStock.customSingleDps) : String(sInfo.singleDividendPerShare));
-                            setEditDps(originalStock.customDps ? String(originalStock.customDps) : String(sInfo.annualDividendPerShare));
-                          }
-                        }}
-                        title="手動校正/輸入官方公告日期"
-                        className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-sky-400 hover:bg-slate-700 transition"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          {item.frequency}
-                        </span>
-                        {isOverNhiThreshold && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            扣二代健保
-                          </span>
+                          <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1 flex justify-between items-center font-sans">
+                            <span>配息狀態:</span>
+                            <span className="text-amber-300/90 font-medium">
+                              尚未公布 (依前次估算)
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Dates Details */}
-                  <div className="bg-slate-950/60 p-2.5 rounded-xl border border-white/5 space-y-1.5 text-xs font-mono">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-400">除息交易日:</span>
-                      <span className={isOfficial ? "text-emerald-400 font-bold" : "text-amber-300 font-bold"}>
-                        {item.exactExDate ? item.exactExDate : `${item.nextExMonthStr}`}
-                      </span>
-                    </div>
+                    {/* Holding & Est Payout */}
+                    <div className="bg-slate-950/40 p-2.5 rounded-xl border border-white/5 font-mono text-xs space-y-1.5 mt-2">
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-sans">當前持股數</div>
+                          <div className="text-slate-200 font-bold">
+                            {originalStock?.shares.toLocaleString() || 0} 股
+                            <span className="text-[10px] text-slate-400 font-normal ml-1">
+                              ({((originalStock?.shares || 0) / 1000).toFixed(1)} 張)
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-400 font-sans">預估單次現金股息</div>
+                          <div className="text-emerald-400 font-bold text-sm">
+                            ${formatMoney(item.estAmountTWD, isPrivacy)} NT$
+                          </div>
+                        </div>
+                      </div>
 
-                    {item.lastBuyDate ? (
-                      <div className="flex justify-between items-center border-t border-white/5 pt-1">
-                        <span className="text-[10px] text-amber-300">最後買進日:</span>
-                        <span className="text-amber-400 font-bold">{item.lastBuyDate} 前</span>
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-slate-400 border-t border-white/5 pt-1 flex justify-between items-center font-sans">
-                        <span>配息狀態:</span>
-                        <span className="text-amber-300/90 font-medium">
-                          尚未公布 (依前次 ${item.singleDps.toFixed(2)}/股 估算)
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex justify-between items-end pt-1 font-mono text-xs">
-                    <div>
-                      <div className="text-[10px] text-slate-400">當前持股數</div>
-                      <div className="text-slate-300 font-bold">{originalStock?.shares.toLocaleString() || 0} 股</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-slate-400">預估單次股息</div>
-                      <div className="text-emerald-400 font-bold text-sm">
-                        ${formatMoney(item.estAmountTWD, isPrivacy)} NT$
-                      </div>
+                      {item.stockDps > 0 && (
+                        <div className="pt-1.5 border-t border-white/5 flex justify-between items-center text-[11px]">
+                          <span className="text-purple-300">預估配股: <strong className="text-purple-200 font-bold">+{item.pendingStockShares} 股</strong></span>
+                          <span className="text-purple-300 font-bold">市值約 ${formatMoney(item.pendingStockValueTWD, isPrivacy)} NT$</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Table View */}
+          {calendarView === 'table' && (
+            <div className="bg-slate-900/90 rounded-2xl border border-white/10 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] border-b border-white/10">
+                    <tr>
+                      <th className="py-3 px-3">標的 / 代號</th>
+                      <th className="py-3 px-2">分派類別</th>
+                      <th className="py-3 px-3 text-right">每股現金 (配息)</th>
+                      <th className="py-3 px-3 text-right">每股股票 (配股)</th>
+                      <th className="py-3 px-3 text-center">除權息交易日</th>
+                      <th className="py-3 px-3 text-center">最後買進日</th>
+                      <th className="py-3 px-3 text-right">持股數</th>
+                      <th className="py-3 px-3 text-right">預估現金收益</th>
+                      <th className="py-3 px-3 text-right">預估配股/市值</th>
+                      <th className="py-3 px-3 text-center">校正/重訊</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-slate-200">
+                    {summary.upcomingReminders.map((item, idx) => {
+                      const originalStock = portfolio.find((p) => p.symbol.toUpperCase() === item.symbol.toUpperCase());
+                      const isOfficial = item.isOfficial || !!item.exactExDate;
+
+                      return (
+                        <tr key={idx} className="hover:bg-white/5 transition">
+                          <td className="py-3 px-3 font-sans">
+                            <div className="font-bold text-white text-sm">{item.name}</div>
+                            <div className="text-sky-400 text-[11px] font-mono">{item.symbol}</div>
+                          </td>
+
+                          <td className="py-3 px-2">
+                            {item.stockDps > 0 && item.singleDps > 0 ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                除權息
+                              </span>
+                            ) : item.stockDps > 0 ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                除權
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                除息
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-bold text-emerald-400">
+                            ${item.singleDps.toFixed(2)} 元
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-bold text-purple-300">
+                            {item.stockDps > 0 ? `${item.stockDps.toFixed(2)} 元` : '-'}
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <span className={isOfficial ? "text-emerald-400 font-bold" : "text-amber-300"}>
+                              {item.exactExDate ? item.exactExDate : `${item.nextExMonthStr}`}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            {item.lastBuyDate ? (
+                              <span className="text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                {item.lastBuyDate} 前
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 text-[10px]">-</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-bold text-slate-300">
+                            {originalStock?.shares.toLocaleString() || 0} 股
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-bold text-emerald-400">
+                            ${formatMoney(item.estAmountTWD, isPrivacy)} NT$
+                          </td>
+
+                          <td className="py-3 px-3 text-right font-bold text-purple-300">
+                            {item.stockDps > 0 ? (
+                              <div>
+                                <div>+{item.pendingStockShares} 股</div>
+                                <div className="text-[10px] text-purple-400">${formatMoney(item.pendingStockValueTWD, isPrivacy)} NT$</div>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 text-[10px]">-</span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={() => {
+                                playClickSound();
+                                if (originalStock) {
+                                  setEditingStock(originalStock);
+                                  setEditExDate(originalStock.customExDate || item.exactExDate || '');
+                                  const stockInfo = getStockDividendInfo(originalStock, usdTwdRate);
+                                  setEditSingleDps(originalStock.customSingleDps ? String(originalStock.customSingleDps) : String(stockInfo.singleDividendPerShare));
+                                  setEditDps(originalStock.customDps ? String(originalStock.customDps) : String(stockInfo.annualDividendPerShare));
+                                  setEditStockDps(originalStock.customStockDps !== undefined ? String(originalStock.customStockDps) : String(stockInfo.stockDps || ''));
+                                }
+                              }}
+                              className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-sky-300 hover:bg-slate-700 transition border border-white/10"
+                              title="校正除息日/配息與配股"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -824,7 +1086,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-emerald-400 font-bold mb-1">單次/當季每股配息</label>
+                    <label className="block text-emerald-400 font-bold mb-1">單次每股現金股利 (配息)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -842,49 +1104,64 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                       }}
                       className="w-full bg-slate-950 text-emerald-400 border border-emerald-500/30 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-emerald-400"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">如 00878 每股配 1.01 元</p>
+                    <p className="text-[10px] text-slate-400 mt-1">如台積電 4.0 元 / 合庫金 0.8 元</p>
                   </div>
 
                   <div>
-                    <label className="block text-amber-300 font-bold mb-1">年化每股總配息 (DPS)</label>
+                    <label className="block text-purple-300 font-bold mb-1">每股股票股利 (配股)</label>
                     <input
                       type="number"
                       step="0.01"
-                      placeholder={`例如: ${sInfo.annualDividendPerShare}`}
-                      value={editDps}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditDps(val);
-                        if (val !== '') {
-                          const num = parseFloat(val) || 0;
-                          setEditSingleDps(String(Number((num / mult).toFixed(4))));
-                        } else {
-                          setEditSingleDps('');
-                        }
-                      }}
-                      className="w-full bg-slate-950 text-amber-300 border border-white/10 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-amber-400"
+                      placeholder={`例如: ${sInfo.stockDps || 0}`}
+                      value={editStockDps}
+                      onChange={(e) => setEditStockDps(e.target.value)}
+                      className="w-full bg-slate-950 text-purple-300 border border-purple-500/30 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-purple-400"
                     />
-                    <p className="text-[10px] text-slate-400 mt-1">({freq} x {mult} 次/年)</p>
+                    <p className="text-[10px] text-slate-400 mt-1">0.25 元代表每張配 25 股 (配股率 2.5%)</p>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-amber-300 font-bold mb-1">年化每股總現金股息 (DPS)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={`例如: ${sInfo.annualDividendPerShare}`}
+                    value={editDps}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditDps(val);
+                      if (val !== '') {
+                        const num = parseFloat(val) || 0;
+                        setEditSingleDps(String(Number((num / mult).toFixed(4))));
+                      } else {
+                        setEditSingleDps('');
+                      }
+                    }}
+                    className="w-full bg-slate-950 text-amber-300 border border-white/10 rounded-xl px-3 py-2 font-mono font-bold outline-none focus:border-amber-400"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">({freq} x {mult} 次/年)</p>
                 </div>
 
                 {/* Live Realtime Portfolio Impact Box */}
                 <div className="bg-slate-950/80 p-3 rounded-2xl border border-emerald-500/30 space-y-1.5 font-mono">
                   <div className="text-[11px] text-slate-400 flex justify-between font-sans">
-                    <span>持股試算對照 ({editingStock.shares.toLocaleString()} 股)</span>
+                    <span>持股試算對照 ({editingStock.shares.toLocaleString()} 股 / {(editingStock.shares / 1000).toFixed(1)} 張)</span>
                     <span className="text-emerald-400 font-bold">即時試算</span>
                   </div>
                   <div className="flex justify-between items-center text-slate-200">
-                    <span>單次/當季預估可領：</span>
+                    <span>單次預估現金股息：</span>
                     <span className="text-emerald-400 font-bold text-sm">${Math.round(estSinglePayout).toLocaleString()} NT$</span>
                   </div>
-                  <div className="flex justify-between items-center text-slate-300">
-                    <span>全年度預估總金額：</span>
+                  {editStockDps !== '' && parseFloat(editStockDps) > 0 && (
+                    <div className="flex justify-between items-center text-purple-300 border-t border-white/5 pt-1">
+                      <span>預估新增配股股票：</span>
+                      <span className="font-bold">+{Math.round((editingStock.shares * parseFloat(editStockDps)) / 10)} 股</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-slate-300 border-t border-white/5 pt-1">
+                    <span>全年度預估總現金：</span>
                     <span className="text-amber-300 font-bold">${Math.round(estAnnualTotal).toLocaleString()} NT$</span>
-                  </div>
-                  <div className="flex justify-between items-center text-slate-300 border-t border-white/10 pt-1">
-                    <span>折算平均每月收益：</span>
-                    <span className="text-sky-300 font-bold">${Math.round(estMonthlyAvg).toLocaleString()} NT$/月</span>
                   </div>
                 </div>
               </div>
@@ -904,6 +1181,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                       customExDate: editExDate.replace(/-/g, '/').trim() || undefined,
                       customSingleDps: editSingleDps !== '' ? parseFloat(editSingleDps) : undefined,
                       customDps: editDps !== '' ? parseFloat(editDps) : undefined,
+                      customStockDps: editStockDps !== '' ? parseFloat(editStockDps) : undefined,
                     };
                     if (onUpdateStock) {
                       onUpdateStock(updatedStock);

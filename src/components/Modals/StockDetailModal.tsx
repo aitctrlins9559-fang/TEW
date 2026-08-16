@@ -173,7 +173,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
           <div className="bg-amber-500/10 p-4 rounded-2xl border border-amber-500/30 space-y-1.5 shadow-md">
             <div className="flex justify-between items-center">
               <span className="text-[11px] text-amber-300 font-sans flex items-center gap-1.5 font-bold">
-                <Sparkles className="w-4 h-4 text-amber-400" /> 預估股息 (殖利率)
+                <Sparkles className="w-4 h-4 text-amber-400" /> 預估除權息 (配息與配股)
               </span>
               {divInfo.isOfficial ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -186,11 +186,27 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               )}
             </div>
             <div className="text-amber-400 font-mono font-bold text-sm">
-              ${formatMoney(divInfo.annualIncomeTWD, isPrivacy)} /年 ({divInfo.dividendYieldPct.toFixed(1)}%)
+              現金股息: ${formatMoney(divInfo.annualIncomeTWD, isPrivacy)} /年 ({divInfo.dividendYieldPct.toFixed(1)}%)
             </div>
             <div className="text-[11px] text-emerald-400 font-mono font-bold">
-              預估單次可領: ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)} NT$
+              預估單次現金: ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)} NT$
             </div>
+            {divInfo.stockDps > 0 && (
+              <div className="bg-purple-950/40 border border-purple-500/30 rounded-xl p-2 mt-2 space-y-1 text-purple-200">
+                <div className="text-xs font-bold flex justify-between items-center">
+                  <span>🎁 股票股利 (配股)</span>
+                  <span className="font-mono text-purple-300">{divInfo.stockDps} 元 / 股</span>
+                </div>
+                <div className="text-[11px] font-mono text-slate-300 flex justify-between">
+                  <span>待撥股票股利:</span>
+                  <span className="font-bold text-white">+{divInfo.pendingStockShares} 股</span>
+                </div>
+                <div className="text-[11px] font-mono text-emerald-400 flex justify-between">
+                  <span>待撥配股市值估算:</span>
+                  <span className="font-bold">${formatMoney(divInfo.pendingStockValueTWD, isPrivacy)} NT$</span>
+                </div>
+              </div>
+            )}
             <div className="text-[10px] text-slate-300 font-sans border-t border-amber-500/20 pt-1 mt-1">
               {divInfo.isOfficial ? (
                 <span>公告狀態: <strong className="text-emerald-400">官方已正式公告除息日 ({divInfo.exactExDate})</strong></span>

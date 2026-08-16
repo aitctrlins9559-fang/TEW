@@ -106,6 +106,27 @@ const INITIAL_PORTFOLIO: StockPosition[] = [
       { id: 'tx_3', buyDate: '2024-01-20', shares: 2000, cost: 155, buyRate: 1 },
     ],
   },
+  {
+    id: 'stk_4',
+    symbol: '6691',
+    name: '洋基工程',
+    market: 'tse',
+    shares: 1000,
+    cost: 320,
+    buyDate: '2024-03-10',
+    buyRate: 1,
+    price: 365,
+    prevClose: 360,
+    dayHigh: 368,
+    dayLow: 358,
+    customExDate: '2026/08/20',
+    customSingleDps: 21.0,
+    customDps: 21.0,
+    customStockDps: 1.0,
+    transactions: [
+      { id: 'tx_4', buyDate: '2024-03-10', shares: 1000, cost: 320, buyRate: 1 },
+    ],
+  },
 ];
 
 export default function App() {
@@ -295,6 +316,10 @@ export default function App() {
           dayHigh: typeof item.dayHigh === 'number' ? item.dayHigh : null,
           dayLow: typeof item.dayLow === 'number' ? item.dayLow : null,
           fetchError: Boolean(item.fetchError),
+          customExDate: typeof item.customExDate === 'string' ? item.customExDate : undefined,
+          customSingleDps: typeof item.customSingleDps === 'number' ? item.customSingleDps : undefined,
+          customDps: typeof item.customDps === 'number' ? item.customDps : undefined,
+          customStockDps: typeof item.customStockDps === 'number' ? item.customStockDps : undefined,
         };
       })
       .filter(

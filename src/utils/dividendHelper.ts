@@ -3,6 +3,7 @@ import { StockPosition, MarketType } from '../types';
 export interface DividendInfo {
   singleDividendPerShare: number; // 單次每股配息 (e.g. 1.01)
   annualDividendPerShare: number; // 年化每股總配息 (e.g. 4.04)
+  stockDps: number; // 股票股利 (配股 元/股, e.g. 0.3 元配股 = 30股/張)
   dividendYieldPct: number; // %
   frequency: '月配息' | '季配息' | '半年配' | '年配息';
   exMonths: number[]; // e.g. [1, 4, 7, 10] for quarterly
@@ -15,10 +16,13 @@ export interface DividendInfo {
   singlePayoutTWD: number; // 當次/單季預估可領金額 TWD
   annualIncomeTWD: number; // 全年預估總配息 TWD
   monthlyIncomeTWD: number; // 平均每月折算 TWD
+  pendingStockShares: number; // 待撥配股數量
+  pendingStockValueTWD: number; // 待撥配股當前市值 TWD
 }
 
 export interface KnownDividendProfile {
   annualDps: number; // Dividend per share
+  stockDps?: number; // Stock dividend per share (配股 元)
   frequency: '月配息' | '季配息' | '半年配' | '年配息';
   exMonths: number[];
   exactExDate?: string; // YYYY/MM/DD if officially announced
@@ -41,19 +45,23 @@ export const KNOWN_DIVIDENDS: Record<string, KnownDividendProfile> = {
   '0050': { annualDps: 5.0, frequency: '半年配', exMonths: [1, 7] },
   '006208': { annualDps: 3.8, frequency: '半年配', exMonths: [7, 11] },
 
-  // 台股權值股 / 金融股
+  // 台股權值股 / 金融股 / 傳產及高配股個股
   '2330': { annualDps: 18.0, frequency: '季配息', exMonths: [3, 6, 9, 12] },
   '2317': { annualDps: 5.4, frequency: '年配息', exMonths: [7] },
   '2454': { annualDps: 55.0, frequency: '半年配', exMonths: [1, 7] },
-  '2881': { annualDps: 3.2, frequency: '年配息', exMonths: [7] },
-  '2882': { annualDps: 2.8, frequency: '年配息', exMonths: [7] },
-  '2891': { annualDps: 1.8, frequency: '年配息', exMonths: [7] },
-  '2886': { annualDps: 1.8, frequency: '年配息', exMonths: [8] },
-  '2884': { annualDps: 1.3, frequency: '年配息', exMonths: [8] },
-  '2892': { annualDps: 1.2, frequency: '年配息', exMonths: [8] },
-  '2880': { annualDps: 1.3, frequency: '年配息', exMonths: [8] },
-  '2885': { annualDps: 1.4, frequency: '年配息', exMonths: [7] },
-  '2890': { annualDps: 1.0, frequency: '年配息', exMonths: [8] },
+  '6691': { annualDps: 21.0, stockDps: 1.0, frequency: '年配息', exMonths: [8], exactExDate: '2026/08/20' }, // 洋基工程 2026/08/20 除權息：現金 21 元 + 股票 1.0 元 (配股率 10%)
+  '1229': { annualDps: 1.8, stockDps: 0.2, frequency: '年配息', exMonths: [7] }, // 聯華：現金 1.8 元 + 股票 0.2 元
+  '2881': { annualDps: 2.5, stockDps: 0.5, frequency: '年配息', exMonths: [7] }, // 富邦金
+  '2882': { annualDps: 2.8, frequency: '年配息', exMonths: [7] }, // 國泰金
+  '2891': { annualDps: 1.8, frequency: '年配息', exMonths: [7] }, // 中信金
+  '2886': { annualDps: 1.5, stockDps: 0.3, frequency: '年配息', exMonths: [8] }, // 兆豐金
+  '2884': { annualDps: 1.2, stockDps: 0.2, frequency: '年配息', exMonths: [8] }, // 玉山金
+  '5880': { annualDps: 0.8, stockDps: 0.25, frequency: '年配息', exMonths: [8] }, // 合庫金
+  '2892': { annualDps: 0.85, stockDps: 0.3, frequency: '年配息', exMonths: [8] }, // 第一金
+  '2880': { annualDps: 1.2, stockDps: 0.1, frequency: '年配息', exMonths: [8] }, // 華南金
+  '2890': { annualDps: 0.75, stockDps: 0.25, frequency: '年配息', exMonths: [8] }, // 永豐金
+  '2885': { annualDps: 1.4, frequency: '年配息', exMonths: [7] }, // 元大金
+  '2834': { annualDps: 0.2, stockDps: 1.15, frequency: '年配息', exMonths: [8] }, // 臺企銀
   '2603': { annualDps: 10.0, frequency: '年配息', exMonths: [6] },
   '2002': { annualDps: 1.0, frequency: '年配息', exMonths: [7] },
   '1101': { annualDps: 1.2, frequency: '年配息', exMonths: [7] },
@@ -81,12 +89,14 @@ export function getStockDividendInfo(
   const marketFx = isUS ? usdTwdRate : 1;
 
   let annualDps = 0;
+  let stockDps = 0;
   let frequency: '月配息' | '季配息' | '半年配' | '年配息' = '年配息';
   let exMonths: number[] = [7];
 
   if (KNOWN_DIVIDENDS[symbol]) {
     const prof = KNOWN_DIVIDENDS[symbol];
     annualDps = prof.annualDps;
+    stockDps = prof.stockDps || 0;
     frequency = prof.frequency;
     exMonths = prof.exMonths;
   } else {
@@ -119,11 +129,23 @@ export function getStockDividendInfo(
     annualDps = stock.customDps;
   }
 
+  if (typeof stock.customStockDps === 'number') {
+    stockDps = stock.customStockDps;
+  }
+
   const singleDps = annualDps / freqMultiplier;
   const dividendYieldPct = currentPrice > 0 ? (annualDps / currentPrice) * 100 : 0;
   const annualIncomeTWD = stock.shares * annualDps * marketFx;
   const singlePayoutTWD = stock.shares * singleDps * marketFx;
   const monthlyIncomeTWD = annualIncomeTWD / 12;
+
+  // Stock dividend calculations (配股計算: 每 1000 股配 stockDps * 100 股 = 每股配 stockDps / 10 股)
+  let pendingStockShares = typeof stock.pendingStockShares === 'number'
+    ? stock.pendingStockShares
+    : stockDps > 0
+    ? Math.floor(stock.shares * (stockDps / 10))
+    : 0;
+  const pendingStockValueTWD = pendingStockShares * currentPrice * marketFx;
 
   // Calculate next ex-dividend date / month string
   let exactExDate: string | undefined = stock.customExDate || KNOWN_DIVIDENDS[symbol]?.exactExDate;
@@ -163,6 +185,7 @@ export function getStockDividendInfo(
   return {
     singleDividendPerShare: singleDps,
     annualDividendPerShare: annualDps,
+    stockDps,
     dividendYieldPct,
     frequency,
     exMonths,
@@ -175,6 +198,8 @@ export function getStockDividendInfo(
     singlePayoutTWD,
     annualIncomeTWD,
     monthlyIncomeTWD,
+    pendingStockShares,
+    pendingStockValueTWD,
   };
 }
 
@@ -182,6 +207,8 @@ export interface PortfolioDividendSummary {
   totalAnnualPassiveIncomeTWD: number;
   totalMonthlyPassiveIncomeTWD: number;
   weightedDividendYieldPct: number;
+  totalPendingStockValueTWD: number; // 待撥股票股利總市值
+  totalPendingStockShares: number; // 待撥股票股利總股數
   monthlyBreakdown: number[]; // 12 months (0 = Jan, 11 = Dec) in TWD
   upcomingReminders: Array<{
     symbol: string;
@@ -194,7 +221,10 @@ export interface PortfolioDividendSummary {
     announcementStatus: 'official' | 'unannounced';
     announcementNote: string;
     singleDps: number;
+    stockDps: number;
     estAmountTWD: number;
+    pendingStockShares: number;
+    pendingStockValueTWD: number;
   }>;
 }
 
@@ -207,6 +237,8 @@ export function calculatePortfolioDividends(
 ): PortfolioDividendSummary {
   let totalAnnualPassiveIncomeTWD = 0;
   let totalMarketValTWD = 0;
+  let totalPendingStockValueTWD = 0;
+  let totalPendingStockShares = 0;
   const monthlyBreakdown = new Array(12).fill(0);
   const reminders: PortfolioDividendSummary['upcomingReminders'] = [];
 
@@ -219,6 +251,8 @@ export function calculatePortfolioDividends(
 
     const info = getStockDividendInfo(stock, usdTwdRate);
     totalAnnualPassiveIncomeTWD += info.annualIncomeTWD;
+    totalPendingStockValueTWD += info.pendingStockValueTWD;
+    totalPendingStockShares += info.pendingStockShares;
 
     // Distribute into monthly breakdown
     if (info.exMonths.length > 0) {
@@ -229,7 +263,7 @@ export function calculatePortfolioDividends(
       });
     }
 
-    if (info.annualIncomeTWD > 0) {
+    if (info.annualIncomeTWD > 0 || info.stockDps > 0) {
       reminders.push({
         symbol: stock.symbol,
         name: stock.name,
@@ -241,7 +275,10 @@ export function calculatePortfolioDividends(
         announcementStatus: info.announcementStatus,
         announcementNote: info.announcementNote,
         singleDps: info.singleDividendPerShare,
-        estAmountTWD: info.annualIncomeTWD / info.exMonths.length,
+        stockDps: info.stockDps,
+        estAmountTWD: info.annualIncomeTWD / (info.exMonths.length || 1),
+        pendingStockShares: info.pendingStockShares,
+        pendingStockValueTWD: info.pendingStockValueTWD,
       });
     }
   });
@@ -257,6 +294,8 @@ export function calculatePortfolioDividends(
     totalAnnualPassiveIncomeTWD,
     totalMonthlyPassiveIncomeTWD,
     weightedDividendYieldPct,
+    totalPendingStockValueTWD,
+    totalPendingStockShares,
     monthlyBreakdown,
     upcomingReminders: reminders,
   };

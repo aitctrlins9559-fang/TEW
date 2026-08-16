@@ -247,7 +247,9 @@ export interface DividendEventItem {
   symbol: string;
   exDate: string; // YYYY/MM/DD
   exDateTs: number;
-  amount: number;
+  amount: number; // 現金股利 (配息)
+  stockDps?: number; // 股票股利 (配股)
+  type?: string; // '息' | '權' | '權息'
 }
 
 export async function apiFetchDividends(symbols: string[]): Promise<DividendEventItem[]> {

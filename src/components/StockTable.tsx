@@ -539,8 +539,16 @@ export const StockTable: React.FC<StockTableProps> = ({
                           )}
                         </div>
                         <div className="text-[11px] text-emerald-400 font-semibold">
-                          單次 ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)}
+                          單次配息 ${formatMoney(divInfo.singlePayoutTWD, isPrivacy)}
                         </div>
+                        {divInfo.stockDps > 0 && (
+                          <div className="text-[11px] text-purple-300 font-semibold flex items-center gap-1">
+                            <span>配股 {divInfo.stockDps} 元</span>
+                            <span className="text-[9px] bg-purple-500/20 px-1 rounded border border-purple-500/30">
+                              +{divInfo.pendingStockShares}股 (待撥 ${formatMoney(divInfo.pendingStockValueTWD, isPrivacy)})
+                            </span>
+                          </div>
+                        )}
                         <div className="text-[10px] text-amber-400/80 font-medium">
                           {divInfo.dividendYieldPct.toFixed(1)}% <span className="text-[9px] text-slate-500 font-sans">({divInfo.frequency})</span>
                         </div>
