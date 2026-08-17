@@ -318,6 +318,10 @@ export const StockTable: React.FC<StockTableProps> = ({
               const profitColorClass =
                 itemProfitTWD === null ? 'text-slate-500' : itemProfitTWD >= 0 ? getUpColor() : getDownColor();
 
+              const divInfo = getStockDividendInfo(item, usdTwdRate);
+              const hasCashDiv = divInfo.singleDividendPerShare > 0;
+              const hasStockDiv = typeof divInfo.stockDps === 'number' && divInfo.stockDps > 0;
+
               return (
                 <div
                   key={item.id}
@@ -325,24 +329,43 @@ export const StockTable: React.FC<StockTableProps> = ({
                     playClickSound();
                     setDetailModalStock(item);
                   }}
-                  className="px-4 py-3.5 hover:bg-slate-800/60 active:bg-slate-800 transition cursor-pointer flex items-center justify-between gap-3 group"
+                  className="px-4 py-3.5 hover:bg-slate-800/60 active:bg-slate-800 transition cursor-pointer flex items-center justify-between gap-3 group border-b border-white/5 last:border-0"
                 >
-                  {/* Left Column: Stock Info */}
-                  <div className="min-w-0 flex-1">
+                  {/* Left Column: Stock Info & Dividend Tag */}
+                  <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white group-hover:text-sky-400 transition truncate">
+                      <span className="text-base font-bold text-white group-hover:text-sky-400 transition truncate tracking-tight">
                         {item.name}
                       </span>
-                      <span className="text-[9px] font-mono font-bold px-1 py-0.2 rounded bg-white/10 text-slate-300 shrink-0">
-                        {item.market.toUpperCase()}
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-slate-300 shrink-0 uppercase">
+                        {item.market}
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-mono text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sky-400 font-semibold">{item.symbol}</span>
+                    <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-sky-400 font-bold">{item.symbol}</span>
                       <span>•</span>
                       <span>{item.shares.toLocaleString()} 股</span>
                     </div>
+
+                    {/* Mobile Dividend Badge Indicator */}
+                    {(hasCashDiv || hasStockDiv) && (
+                      <div className="flex items-center gap-1 pt-0.5 flex-wrap">
+                        {hasCashDiv && hasStockDiv ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            權息 (現金${divInfo.singleDividendPerShare} + 配股{divInfo.stockDps}元)
+                          </span>
+                        ) : hasStockDiv ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                            配股 ({divInfo.stockDps}元)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            配息 (${divInfo.singleDividendPerShare}元)
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Column: Price, Valuation, Profit & Chevron */}
@@ -350,16 +373,16 @@ export const StockTable: React.FC<StockTableProps> = ({
                     <div className="flex flex-col items-end">
                       {/* Price & ROI */}
                       <div className="flex items-center gap-1.5 font-mono">
-                        <span className="text-sm font-bold text-slate-100">
+                        <span className="text-base font-black text-slate-100">
                           {safePrice === null ? '--' : `$${safePrice}`}
                         </span>
                         <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
                             itemRoi === null
                               ? 'bg-slate-800 text-slate-400'
                               : itemRoi >= 0
-                              ? 'bg-emerald-500/15 text-emerald-400'
-                              : 'bg-rose-500/15 text-rose-400'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-rose-500/15 text-rose-400 border border-rose-500/20'
                           }`}
                         >
                           {itemRoi === null ? '--' : `${itemRoi >= 0 ? '+' : ''}${itemRoi.toFixed(2)}%`}
@@ -367,17 +390,17 @@ export const StockTable: React.FC<StockTableProps> = ({
                       </div>
 
                       {/* Valuation & Profit */}
-                      <div className="text-[11px] font-mono mt-0.5 flex items-center gap-1 text-slate-400">
-                        <span>{itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}</span>
-                        <span>|</span>
-                        <span className={`font-semibold ${profitColorClass}`}>
+                      <div className="text-[11px] font-mono mt-0.5 flex items-center gap-1 text-slate-300">
+                        <span className="font-semibold">{itemMarketValTWD === null ? '--' : formatMoney(itemMarketValTWD, isPrivacy)}</span>
+                        <span className="text-slate-600">|</span>
+                        <span className={`font-bold ${profitColorClass}`}>
                           {itemProfitTWD === null
                             ? '--'
                             : `${itemProfitTWD >= 0 ? '+' : ''}${formatMoney(itemProfitTWD, isPrivacy)}`}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono mt-0.5 font-sans">
-                        成本 <span className="font-mono text-slate-400">${formatMoney(itemCostTWD, isPrivacy)}</span>
+                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        成本 <span className="font-mono text-slate-300">${formatMoney(itemCostTWD, isPrivacy)}</span>
                       </div>
                     </div>
 
