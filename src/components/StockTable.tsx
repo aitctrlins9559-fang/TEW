@@ -29,6 +29,7 @@ interface StockTableProps {
   isAdmin: boolean;
   isPrivacy: boolean;
   isRedUp: boolean;
+  officialEvents?: Record<string, { exDate: string; amount: number; stockDps?: number }>;
   onSelectChartTarget: (symbol: string, market: 'tse' | 'otc' | 'us', name: string) => void;
   onOpenTxHistory: (stockId: string) => void;
   onOpenEditModal: (stockId: string) => void;
@@ -46,6 +47,7 @@ export const StockTable: React.FC<StockTableProps> = ({
   isAdmin,
   isPrivacy,
   isRedUp,
+  officialEvents,
   onSelectChartTarget,
   onOpenTxHistory,
   onOpenEditModal,
@@ -318,7 +320,7 @@ export const StockTable: React.FC<StockTableProps> = ({
               const profitColorClass =
                 itemProfitTWD === null ? 'text-slate-500' : itemProfitTWD >= 0 ? getUpColor() : getDownColor();
 
-              const divInfo = getStockDividendInfo(item, usdTwdRate);
+              const divInfo = getStockDividendInfo(item, usdTwdRate, officialEvents?.[item.symbol.toUpperCase()]);
               const hasCashDiv = divInfo.singleDividendPerShare > 0;
               const hasStockDiv = typeof divInfo.stockDps === 'number' && divInfo.stockDps > 0;
 
@@ -470,7 +472,7 @@ export const StockTable: React.FC<StockTableProps> = ({
                     );
                   }
 
-                  const divInfo = getStockDividendInfo(item, usdTwdRate);
+                  const divInfo = getStockDividendInfo(item, usdTwdRate, officialEvents?.[item.symbol.toUpperCase()]);
                   const txCount = Array.isArray(item.transactions) ? item.transactions.length : 1;
 
                   return (
@@ -626,6 +628,7 @@ export const StockTable: React.FC<StockTableProps> = ({
         usdTwdRate={usdTwdRate}
         isPrivacy={isPrivacy}
         isRedUp={isRedUp}
+        officialEvents={officialEvents}
         onClose={() => setDetailModalStock(null)}
         onOpenChart={(symbol, market, name) => {
           onSelectChartTarget(symbol, market, name);

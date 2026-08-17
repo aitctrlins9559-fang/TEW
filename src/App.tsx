@@ -43,6 +43,7 @@ import {
   apiFetchIndices,
   apiFetchNews,
   apiFetchChartData,
+  apiFetchDividends,
   apiRunAIAnalysis,
 } from './utils/apiClient';
 import {
@@ -159,6 +160,7 @@ export default function App() {
   const [activeRefreshInterval, setActiveRefreshInterval] = useState(60);
   const [countdownTimer, setCountdownTimer] = useState(60);
   const [isFetchingPrices, setIsFetchingPrices] = useState(false);
+  const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }>>({});
 
   const [cloudSyncUrl, setCloudSyncUrl] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState('');
@@ -333,10 +335,33 @@ export default function App() {
       );
   }, []);
 
+  // Fetch Live Official Ex-Dividend Events
+  const fetchOfficialDividends = useCallback(async () => {
+    const currentPortfolio = portfolioRef.current;
+    if (!currentPortfolio || currentPortfolio.length === 0) return;
+    try {
+      const rawSymbols = currentPortfolio.map((p) => p.symbol);
+      const events = await apiFetchDividends(rawSymbols);
+      const map: Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }> = {};
+      events.forEach((ev) => {
+        const key = ev.symbol.toUpperCase();
+        if (!map[key] || ev.exDateTs > map[key].exDateTs) {
+          map[key] = { exDate: ev.exDate, amount: ev.amount, stockDps: ev.stockDps, exDateTs: ev.exDateTs };
+        }
+      });
+      setOfficialEvents(map);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Fetch quotes from server or CORS fallback
   const fetchRealtimePrices = useCallback(async (isManual = false) => {
     setIsFetchingPrices(true);
     const tStart = performance.now();
+
+    // Trigger dividend sync alongside prices
+    fetchOfficialDividends();
 
     try {
       // 1. Fetch USD rate
@@ -1229,6 +1254,7 @@ export default function App() {
                 isAdmin={isAdmin}
                 isPrivacy={isPrivacy}
                 isRedUp={isRedUp}
+                officialEvents={officialEvents}
                 onSelectChartTarget={(symbol, market, name) => {
                   setSelectedChartTarget({ symbol, market, name });
                   setIsFullChartModalOpen(true);
@@ -1314,6 +1340,7 @@ export default function App() {
                   portfolio={portfolio}
                   usdTwdRate={usdTwdRate}
                   isPrivacy={isPrivacy}
+                  officialEvents={officialEvents}
                   onUpdateStock={handleUpdateSingleStock}
                 />
               </div>

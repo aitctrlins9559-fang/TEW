@@ -22,6 +22,7 @@ interface StockDetailModalProps {
   usdTwdRate: number;
   isPrivacy: boolean;
   isRedUp: boolean;
+  officialEvents?: Record<string, { exDate: string; amount: number; stockDps?: number }>;
   onClose: () => void;
   onOpenChart: (symbol: string, market: 'tse' | 'otc' | 'us', name: string) => void;
   onOpenTxHistory: (stockId: string) => void;
@@ -35,6 +36,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   usdTwdRate,
   isPrivacy,
   isRedUp,
+  officialEvents,
   onClose,
   onOpenChart,
   onOpenTxHistory,
@@ -59,7 +61,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const profitColorClass =
     profitTWD === null ? 'text-slate-500' : profitTWD >= 0 ? getUpColor() : getDownColor();
 
-  const divInfo = getStockDividendInfo(stock, usdTwdRate);
+  const divInfo = getStockDividendInfo(stock, usdTwdRate, officialEvents?.[stock.symbol.toUpperCase()]);
   const txCount = Array.isArray(stock.transactions) ? stock.transactions.length : 1;
 
   return (

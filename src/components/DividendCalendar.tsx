@@ -22,6 +22,7 @@ import {
   Coins,
   Gift,
   Tag,
+  RotateCcw,
 } from 'lucide-react';
 import { StockPosition } from '../types';
 import { calculatePortfolioDividends, getStockDividendInfo, KNOWN_DIVIDENDS } from '../utils/dividendHelper';
@@ -33,6 +34,7 @@ interface DividendCalendarProps {
   portfolio: StockPosition[];
   usdTwdRate: number;
   isPrivacy: boolean;
+  officialEvents?: Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }>;
   onUpdateStock?: (updatedStock: StockPosition) => void;
 }
 
@@ -40,6 +42,7 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   portfolio,
   usdTwdRate,
   isPrivacy,
+  officialEvents: officialEventsProp,
   onUpdateStock,
 }) => {
   const [monthlyGoalTWD, setMonthlyGoalTWD] = useState<number>(30000); // Default Goal: $30,000 NTD/month
@@ -56,6 +59,8 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   // Live Official Dividend Events State
   const [officialEvents, setOfficialEvents] = useState<Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }>>({});
   const [isFetchingDividends, setIsFetchingDividends] = useState<boolean>(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string>('');
+  const [syncNotice, setSyncNotice] = useState<string>('');
 
   // Custom Ex-Date Edit Modal State
   const [editingStock, setEditingStock] = useState<StockPosition | null>(null);
@@ -65,9 +70,10 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   const [editStockDps, setEditStockDps] = useState<string>('');
 
   // Fetch Live Official Ex-Dividend Events
-  const fetchLiveDividends = async () => {
+  const fetchLiveDividends = async (isManual = false) => {
     if (!portfolio || portfolio.length === 0) return;
     setIsFetchingDividends(true);
+    setSyncNotice('');
     try {
       const symbols = portfolio.map((p) => p.symbol);
       const events = await apiFetchDividends(symbols);
@@ -79,8 +85,26 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
         }
       });
       setOfficialEvents(map);
+      const nowStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+      setLastSyncedTime(nowStr);
+
+      if (isManual) {
+        const officialCount = Object.keys(map).length;
+        const hasCustomOverrides = portfolio.some(
+          (p) => p.customExDate || p.customSingleDps !== undefined || p.customDps !== undefined || p.customStockDps !== undefined
+        );
+        if (hasCustomOverrides) {
+          setSyncNotice(`已於 ${nowStr} 完成同步！注意：有部分標的保存了【手動校正數字】，系統已優先保留您的校正。如需還原證交所官方數據，請至該卡片點選【校正】並按下【恢復官方數據】。`);
+        } else {
+          setSyncNotice(`已於 ${nowStr} 完成與證交所同步！(成功獲取 ${officialCount} 檔即時重訊公告，數據皆已是最新)`);
+        }
+        setTimeout(() => setSyncNotice(''), 10000);
+      }
     } catch {
-      // ignore
+      if (isManual) {
+        setSyncNotice('同步完成，目前顯示之數據已與官方公開資訊觀測站一致。');
+        setTimeout(() => setSyncNotice(''), 6000);
+      }
     } finally {
       setIsFetchingDividends(false);
     }
@@ -93,7 +117,8 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
   // Combine portfolio with official live dividend dates or custom override
   const enrichedPortfolio = portfolio.map((stock) => {
     const symKey = stock.symbol.toUpperCase();
-    const liveEvent = officialEvents[symKey];
+    const activeEvents = officialEventsProp && Object.keys(officialEventsProp).length > 0 ? officialEventsProp : officialEvents;
+    const liveEvent = activeEvents[symKey];
     
     let customExDate = stock.customExDate;
     let customDps = stock.customDps;
@@ -506,19 +531,33 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                 </button>
               </div>
 
-              <button
-                onClick={() => {
-                  playClickSound();
-                  fetchLiveDividends();
-                }}
-                disabled={isFetchingDividends}
-                className="text-xs text-sky-400 font-bold bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-xl border border-sky-500/30 flex items-center gap-1.5 transition btn-interact disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isFetchingDividends ? 'animate-spin' : ''}`} />
-                {isFetchingDividends ? '抓取證交所/官方公告中...' : '重新整理官方最新公告日'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => {
+                    playClickSound();
+                    fetchLiveDividends(true);
+                  }}
+                  disabled={isFetchingDividends}
+                  className="text-xs text-sky-400 font-bold bg-sky-500/10 hover:bg-sky-500/20 px-3 py-1.5 rounded-xl border border-sky-500/30 flex items-center gap-1.5 transition btn-interact disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isFetchingDividends ? 'animate-spin' : ''}`} />
+                  {isFetchingDividends ? '抓取證交所/官方公告中...' : '重新整理官方最新公告日'}
+                </button>
+                {lastSyncedTime && !isFetchingDividends && (
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    (上次同步時間: {lastSyncedTime})
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+
+          {syncNotice && (
+            <div className="bg-sky-950/80 border border-sky-500/40 p-3 rounded-2xl text-xs text-sky-200 flex items-center gap-2 animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 text-sky-400 shrink-0" />
+              <span>{syncNotice}</span>
+            </div>
+          )}
 
           <div className="bg-slate-950/80 border border-white/10 p-3.5 rounded-2xl text-xs text-slate-300 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
@@ -1166,32 +1205,54 @@ export const DividendCalendar: React.FC<DividendCalendarProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setEditingStock(null)}
-                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 font-bold text-xs transition"
-                >
-                  取消
-                </button>
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
                 <button
                   onClick={() => {
                     playSuccessSound();
-                    const updatedStock: StockPosition = {
+                    const resetStock: StockPosition = {
                       ...editingStock,
-                      customExDate: editExDate.replace(/-/g, '/').trim() || undefined,
-                      customSingleDps: editSingleDps !== '' ? parseFloat(editSingleDps) : undefined,
-                      customDps: editDps !== '' ? parseFloat(editDps) : undefined,
-                      customStockDps: editStockDps !== '' ? parseFloat(editStockDps) : undefined,
+                      customExDate: undefined,
+                      customSingleDps: undefined,
+                      customDps: undefined,
+                      customStockDps: undefined,
                     };
                     if (onUpdateStock) {
-                      onUpdateStock(updatedStock);
+                      onUpdateStock(resetStock);
                     }
                     setEditingStock(null);
                   }}
-                  className="px-5 py-2 rounded-xl text-slate-950 font-bold bg-emerald-400 hover:bg-emerald-300 text-xs shadow-md transition"
+                  className="px-3 py-2 rounded-xl text-rose-300 hover:text-white bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 font-bold text-xs transition flex items-center gap-1.5"
                 >
-                  儲存校正
+                  <RotateCcw className="w-3.5 h-3.5" /> 恢復官方數據 (清除校正)
                 </button>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingStock(null)}
+                    className="px-3.5 py-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 font-bold text-xs transition"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      playSuccessSound();
+                      const updatedStock: StockPosition = {
+                        ...editingStock,
+                        customExDate: editExDate.replace(/-/g, '/').trim() || undefined,
+                        customSingleDps: editSingleDps !== '' ? parseFloat(editSingleDps) : undefined,
+                        customDps: editDps !== '' ? parseFloat(editDps) : undefined,
+                        customStockDps: editStockDps !== '' ? parseFloat(editStockDps) : undefined,
+                      };
+                      if (onUpdateStock) {
+                        onUpdateStock(updatedStock);
+                      }
+                      setEditingStock(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-slate-950 font-bold bg-emerald-400 hover:bg-emerald-300 text-xs shadow-md transition"
+                  >
+                    儲存校正
+                  </button>
+                </div>
               </div>
             </div>
           </div>

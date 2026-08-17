@@ -81,7 +81,8 @@ export const KNOWN_DIVIDENDS: Record<string, KnownDividendProfile> = {
  */
 export function getStockDividendInfo(
   stock: StockPosition,
-  usdTwdRate: number
+  usdTwdRate: number,
+  liveEvent?: { exDate?: string; amount?: number; stockDps?: number }
 ): DividendInfo {
   const symbol = stock.symbol.toUpperCase();
   const currentPrice = typeof stock.price === 'number' && stock.price > 0 ? stock.price : stock.cost;
@@ -122,6 +123,16 @@ export function getStockDividendInfo(
 
   const freqMultiplier = frequency === '月配息' ? 12 : frequency === '季配息' ? 4 : frequency === '半年配' ? 2 : 1;
 
+  // Apply live official event from TWSE OpenAPI if present and user didn't override custom values
+  if (liveEvent) {
+    if (liveEvent.amount && liveEvent.amount > 0 && !stock.customSingleDps && !stock.customDps) {
+      annualDps = liveEvent.amount * freqMultiplier;
+    }
+    if (typeof liveEvent.stockDps === 'number' && liveEvent.stockDps > 0 && stock.customStockDps === undefined) {
+      stockDps = liveEvent.stockDps;
+    }
+  }
+
   // Override with user custom single DPS or custom annual DPS if specified
   if (typeof stock.customSingleDps === 'number' && stock.customSingleDps > 0) {
     annualDps = stock.customSingleDps * freqMultiplier;
@@ -148,9 +159,9 @@ export function getStockDividendInfo(
   const pendingStockValueTWD = pendingStockShares * currentPrice * marketFx;
 
   // Calculate next ex-dividend date / month string
-  let exactExDate: string | undefined = stock.customExDate || KNOWN_DIVIDENDS[symbol]?.exactExDate;
+  let exactExDate: string | undefined = stock.customExDate || liveEvent?.exDate || KNOWN_DIVIDENDS[symbol]?.exactExDate;
   let lastBuyDate: string | undefined;
-  let isOfficial = false;
+  let isOfficial = Boolean(stock.customExDate || liveEvent?.exDate || KNOWN_DIVIDENDS[symbol]?.exactExDate);
 
   const today = new Date();
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -233,7 +244,8 @@ export interface PortfolioDividendSummary {
  */
 export function calculatePortfolioDividends(
   portfolio: StockPosition[],
-  usdTwdRate: number
+  usdTwdRate: number,
+  officialEvents?: Record<string, { exDate: string; amount: number; stockDps?: number }>
 ): PortfolioDividendSummary {
   let totalAnnualPassiveIncomeTWD = 0;
   let totalMarketValTWD = 0;
@@ -249,7 +261,8 @@ export function calculatePortfolioDividends(
     const stockMarketVal = stock.shares * currentPrice * marketFx;
     totalMarketValTWD += stockMarketVal;
 
-    const info = getStockDividendInfo(stock, usdTwdRate);
+    const liveEv = officialEvents?.[stock.symbol.toUpperCase()];
+    const info = getStockDividendInfo(stock, usdTwdRate, liveEv);
     totalAnnualPassiveIncomeTWD += info.annualIncomeTWD;
     totalPendingStockValueTWD += info.pendingStockValueTWD;
     totalPendingStockShares += info.pendingStockShares;
