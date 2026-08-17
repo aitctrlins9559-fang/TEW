@@ -276,24 +276,22 @@ export function calculatePortfolioDividends(
       });
     }
 
-    if (info.annualIncomeTWD > 0 || info.stockDps > 0) {
-      reminders.push({
-        symbol: stock.symbol,
-        name: stock.name,
-        frequency: info.frequency,
-        nextExMonthStr: info.nextExMonthStr,
-        exactExDate: info.exactExDate,
-        lastBuyDate: info.lastBuyDate,
-        isOfficial: info.isOfficial,
-        announcementStatus: info.announcementStatus,
-        announcementNote: info.announcementNote,
-        singleDps: info.singleDividendPerShare,
-        stockDps: info.stockDps,
-        estAmountTWD: info.annualIncomeTWD / (info.exMonths.length || 1),
-        pendingStockShares: info.pendingStockShares,
-        pendingStockValueTWD: info.pendingStockValueTWD,
-      });
-    }
+    reminders.push({
+      symbol: stock.symbol,
+      name: stock.name,
+      frequency: info.frequency,
+      nextExMonthStr: info.nextExMonthStr,
+      exactExDate: info.exactExDate,
+      lastBuyDate: info.lastBuyDate,
+      isOfficial: info.isOfficial,
+      announcementStatus: info.announcementStatus,
+      announcementNote: info.announcementNote,
+      singleDps: info.singleDividendPerShare,
+      stockDps: info.stockDps,
+      estAmountTWD: info.annualIncomeTWD / (info.exMonths.length || 1),
+      pendingStockShares: info.pendingStockShares,
+      pendingStockValueTWD: info.pendingStockValueTWD,
+    });
   });
 
   const totalMonthlyPassiveIncomeTWD = totalAnnualPassiveIncomeTWD / 12;
