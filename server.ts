@@ -329,39 +329,64 @@ app.get('/api/dividends', async (req, res) => {
     // Ignore error
   }
 
-  // 2. Fetch TWSE Official OpenAPI get_opendata_t187ap45_L (上市公司股利分派情形 API)
+  // 2. Fetch TWSE (上市) & TPEx (上櫃) Official Dividend Distribution OpenAPI
   let twseDistributionMap: Record<string, { name: string; year: string; cashDps: number; stockDps: number; type: string; status: string }> = {};
-  try {
-    const openRes = await fetchWithTimeout('https://openapi.twse.com.tw/v1/opendata/t187ap45_L', 5000);
-    if (openRes && Array.isArray(openRes)) {
-      openRes.forEach((item: Record<string, string>) => {
-        const sym = item['公司代號']?.trim();
-        if (!sym) return;
 
-        const cash1 = parseFloat(item['股東配發-盈餘分配之現金股利(元/股)'] || '0');
-        const cash2 = parseFloat(item['股東配發-法定盈餘公積發放之現金(元/股)'] || '0');
-        const cash3 = parseFloat(item['股東配發-資本公積發放之現金(元/股)'] || '0');
-        const cashDps = cash1 + cash2 + cash3;
+  const parseDistributionApi = (items: any[]) => {
+    if (!Array.isArray(items)) return;
+    items.forEach((item: Record<string, any>) => {
+      const sym = (item['公司代號'] || item['SecuritiesCompanyCode'])?.toString()?.trim();
+      if (!sym) return;
 
-        const stock1 = parseFloat(item['股東配發-盈餘轉增資配股(元/股)'] || '0');
-        const stock2 = parseFloat(item['股東配發-法定盈餘公積轉增資配股(元/股)'] || '0');
-        const stock3 = parseFloat(item['股東配發-資本公積轉增資配股(元/股)'] || '0');
-        const stockDps = stock1 + stock2 + stock3;
+      const getVal = (keys: string[]) => {
+        for (const k of keys) {
+          if (item[k] !== undefined && item[k] !== null && item[k] !== '') {
+            const v = parseFloat(String(item[k]).replace(/,/g, ''));
+            if (!isNaN(v) && v >= 0) return v;
+          }
+        }
+        return 0;
+      };
 
-        let typeStr = '息';
-        if (cashDps > 0 && stockDps > 0) typeStr = '權息';
-        else if (stockDps > 0) typeStr = '權';
+      const cash1 = getVal(['股東配發-盈餘分配之現金股利(元/股)', '盈餘分配現金股利', 'CashDividendPerShare']);
+      const cash2 = getVal(['股東配發-法定盈餘公積發放之現金(元/股)', '法定盈餘公積現金股利']);
+      const cash3 = getVal(['股東配發-資本公積發放之現金(元/股)', '資本公積現金股利']);
+      const cashDirect = getVal(['普通股每股現金股利（元）', '普通股每股現金股利', '現金股利']);
+      const cashDps = (cash1 + cash2 + cash3) > 0 ? (cash1 + cash2 + cash3) : cashDirect;
 
+      const stock1 = getVal(['股東配發-盈餘轉增資配股(元/股)', '盈餘轉增資配股', 'StockDividendPerShare']);
+      const stock2 = getVal(['股東配發-法定盈餘公積轉增資配股(元/股)', '法定盈餘公積轉增資配股']);
+      const stock3 = getVal(['股東配發-資本公積轉增資配股(元/股)', '資本公積轉增資配股']);
+      const stockDirect = getVal(['普通股每股股票股利（元）', '普通股每股股票股利', '股票股利']);
+      const stockDps = (stock1 + stock2 + stock3) > 0 ? (stock1 + stock2 + stock3) : stockDirect;
+
+      let typeStr = '息';
+      if (cashDps > 0 && stockDps > 0) typeStr = '權息';
+      else if (stockDps > 0) typeStr = '權';
+
+      const yr = String(item['股利年度'] || item['Year'] || '');
+      const existing = twseDistributionMap[sym];
+
+      if (!existing || (cashDps > 0 && existing.cashDps === 0) || (cashDps > 0 && Number(yr) >= Number(existing.year || 0))) {
         twseDistributionMap[sym] = {
-          name: item['公司名稱']?.trim() || '',
-          year: item['股利年度'] || '',
+          name: (item['公司名稱'] || item['SecuritiesCompanyName'])?.toString()?.trim() || '',
+          year: yr,
           cashDps: Math.round(cashDps * 10000) / 10000,
           stockDps: Math.round(stockDps * 10000) / 10000,
           type: typeStr,
-          status: item['決議（擬議）進度'] || '',
+          status: String(item['決議（擬議）進度'] || ''),
         };
-      });
-    }
+      }
+    });
+  };
+
+  try {
+    const [openResL, openResO] = await Promise.allSettled([
+      fetchWithTimeout('https://openapi.twse.com.tw/v1/opendata/t187ap45_L', 5000),
+      fetchWithTimeout('https://openapi.tpex.org.tw/v1/opendata/t187ap45_O', 5000),
+    ]);
+    if (openResL.status === 'fulfilled') parseDistributionApi(openResL.value);
+    if (openResO.status === 'fulfilled') parseDistributionApi(openResO.value);
   } catch {
     // Ignore error
   }
@@ -393,32 +418,35 @@ app.get('/api/dividends', async (req, res) => {
           let exDateStr = '';
           let exDateTs = 0;
 
-          let querySym = rawSym.toUpperCase();
-          if (!querySym.endsWith('.TW') && !querySym.endsWith('.TWO')) {
-            querySym = `${querySym}.TW`;
+          let symbolsToTry: string[] = [rawSym.toUpperCase()];
+          if (isTwCode && !rawSym.includes('.')) {
+            symbolsToTry = [`${cleanSym}.TWO`, `${cleanSym}.TW`];
           }
 
-          try {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(querySym)}?events=div|split&range=1y&interval=1d`;
-            const data = await fetchWithTimeout(url, 4000);
-            const divsObj = data?.chart?.result?.[0]?.events?.dividends;
-            if (divsObj && typeof divsObj === 'object') {
-              const keys = Object.keys(divsObj);
-              if (keys.length > 0) {
-                const latestKey = keys[keys.length - 1];
-                const div = divsObj[latestKey];
-                if (div && div.date) {
-                  const dt = new Date(div.date * 1000);
-                  const yyyy = dt.getFullYear();
-                  const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                  const dd = String(dt.getDate()).padStart(2, '0');
-                  exDateStr = `${yyyy}/${mm}/${dd}`;
-                  exDateTs = div.date;
+          for (const s of symbolsToTry) {
+            try {
+              const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s)}?events=div|split&range=1y&interval=1d`;
+              const data = await fetchWithTimeout(url, 4000);
+              const divsObj = data?.chart?.result?.[0]?.events?.dividends;
+              if (divsObj && typeof divsObj === 'object') {
+                const keys = Object.keys(divsObj);
+                if (keys.length > 0) {
+                  const latestKey = keys[keys.length - 1];
+                  const div = divsObj[latestKey];
+                  if (div && div.date) {
+                    const dt = new Date(div.date * 1000);
+                    const yyyy = dt.getFullYear();
+                    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dt.getDate()).padStart(2, '0');
+                    exDateStr = `${yyyy}/${mm}/${dd}`;
+                    exDateTs = div.date;
+                    break;
+                  }
                 }
               }
+            } catch {
+              // try next symbol
             }
-          } catch {
-            // ignore
           }
 
           eventsResult.push({
@@ -434,87 +462,125 @@ app.get('/api/dividends', async (req, res) => {
       }
 
       // Check 3: Yahoo Finance div|split API fallback
-      let querySym = rawSym.toUpperCase();
-      if (isTwCode && !querySym.endsWith('.TW') && !querySym.endsWith('.TWO')) {
-        querySym = `${querySym}.TW`;
+      let symbolsToTryCheck3: string[] = [rawSym.toUpperCase()];
+      if (isTwCode && !rawSym.includes('.')) {
+        symbolsToTryCheck3 = [`${cleanSym}.TWO`, `${cleanSym}.TW`];
       }
 
       const hosts = ['query2.finance.yahoo.com', 'query1.finance.yahoo.com'];
-      for (const host of hosts) {
-        try {
-          const url = `https://${host}/v8/finance/chart/${encodeURIComponent(querySym)}?events=div|split&range=2y&interval=1d`;
-          const data = await fetchWithTimeout(url, 6000);
-          const eventsObj = data?.chart?.result?.[0]?.events;
-          const divsObj = eventsObj?.dividends;
-          const splitsObj = eventsObj?.splits;
+      let foundCheck3 = false;
 
-          if ((divsObj && typeof divsObj === 'object') || (splitsObj && typeof splitsObj === 'object')) {
-            const dateMap: Record<string, { cashDps: number; stockDps: number; dateTs: number }> = {};
+      for (const querySym of symbolsToTryCheck3) {
+        if (foundCheck3) break;
+        for (const host of hosts) {
+          try {
+            const url = `https://${host}/v8/finance/chart/${encodeURIComponent(querySym)}?events=div|split&range=2y&interval=1d`;
+            const data = await fetchWithTimeout(url, 6000);
+            const eventsObj = data?.chart?.result?.[0]?.events;
+            const divsObj = eventsObj?.dividends;
+            const splitsObj = eventsObj?.splits;
 
-            if (divsObj) {
-              Object.keys(divsObj).forEach((k) => {
-                const div = divsObj[k];
-                if (div && div.date && div.amount) {
-                  const dt = new Date(div.date * 1000);
-                  const yyyy = dt.getFullYear();
-                  const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                  const dd = String(dt.getDate()).padStart(2, '0');
-                  const dateStr = `${yyyy}/${mm}/${dd}`;
+            if ((divsObj && typeof divsObj === 'object') || (splitsObj && typeof splitsObj === 'object')) {
+              const dateMap: Record<string, { cashDps: number; stockDps: number; dateTs: number }> = {};
 
-                  if (!dateMap[dateStr]) dateMap[dateStr] = { cashDps: 0, stockDps: 0, dateTs: div.date };
-                  dateMap[dateStr].cashDps = Number(div.amount);
-                }
-              });
-            }
+              if (divsObj) {
+                Object.keys(divsObj).forEach((k) => {
+                  const div = divsObj[k];
+                  if (div && div.date && div.amount) {
+                    const dt = new Date(div.date * 1000);
+                    const yyyy = dt.getFullYear();
+                    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dt.getDate()).padStart(2, '0');
+                    const dateStr = `${yyyy}/${mm}/${dd}`;
 
-            if (splitsObj) {
-              Object.keys(splitsObj).forEach((k) => {
-                const sp = splitsObj[k];
-                if (sp && sp.date && sp.numerator && sp.denominator) {
-                  const num = Number(sp.numerator);
-                  const den = Number(sp.denominator);
-                  if (num > den && den >= 100) {
-                    const stockDps = ((num / den) - 1) * 10;
-                    if (stockDps > 0 && stockDps < 10) {
-                      const dt = new Date(sp.date * 1000);
-                      const yyyy = dt.getFullYear();
-                      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                      const dd = String(dt.getDate()).padStart(2, '0');
-                      const dateStr = `${yyyy}/${mm}/${dd}`;
+                    if (!dateMap[dateStr]) dateMap[dateStr] = { cashDps: 0, stockDps: 0, dateTs: div.date };
+                    dateMap[dateStr].cashDps = Number(div.amount);
+                  }
+                });
+              }
 
-                      if (!dateMap[dateStr]) dateMap[dateStr] = { cashDps: 0, stockDps: 0, dateTs: sp.date };
-                      dateMap[dateStr].stockDps = Math.round(stockDps * 1000) / 1000;
+              if (splitsObj) {
+                Object.keys(splitsObj).forEach((k) => {
+                  const sp = splitsObj[k];
+                  if (sp && sp.date && sp.numerator && sp.denominator) {
+                    const num = Number(sp.numerator);
+                    const den = Number(sp.denominator);
+                    if (num > den && den >= 100) {
+                      const stockDps = ((num / den) - 1) * 10;
+                      if (stockDps > 0 && stockDps < 10) {
+                        const dt = new Date(sp.date * 1000);
+                        const yyyy = dt.getFullYear();
+                        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                        const dd = String(dt.getDate()).padStart(2, '0');
+                        const dateStr = `${yyyy}/${mm}/${dd}`;
+
+                        if (!dateMap[dateStr]) dateMap[dateStr] = { cashDps: 0, stockDps: 0, dateTs: sp.date };
+                        dateMap[dateStr].stockDps = Math.round(stockDps * 1000) / 1000;
+                      }
                     }
                   }
-                }
+                });
+              }
+
+              Object.entries(dateMap).forEach(([dateStr, info]) => {
+                let typeStr = '息';
+                if (info.cashDps > 0 && info.stockDps > 0) typeStr = '權息';
+                else if (info.stockDps > 0) typeStr = '權';
+
+                eventsResult.push({
+                  symbol: rawSym.toUpperCase(),
+                  exDate: dateStr,
+                  exDateTs: info.dateTs,
+                  amount: info.cashDps,
+                  stockDps: info.stockDps > 0 ? info.stockDps : undefined,
+                  type: typeStr,
+                });
               });
+
+              foundCheck3 = true;
+              break; // success
             }
-
-            Object.entries(dateMap).forEach(([dateStr, info]) => {
-              let typeStr = '息';
-              if (info.cashDps > 0 && info.stockDps > 0) typeStr = '權息';
-              else if (info.stockDps > 0) typeStr = '權';
-
-              eventsResult.push({
-                symbol: rawSym.toUpperCase(),
-                exDate: dateStr,
-                exDateTs: info.dateTs,
-                amount: info.cashDps,
-                stockDps: info.stockDps > 0 ? info.stockDps : undefined,
-                type: typeStr,
-              });
-            });
-
-            break; // success
+          } catch {
+            // try next host
           }
-        } catch {
-          // try next host
         }
       }
 
-      // Check 4: Fubon Neo / Fugle Market Data API Fallback (富邦新一代 API / Fugle 備援)
+      // Check 4: Yahoo Finance Quote API dividendRate fallback
       const hasSymEvent = eventsResult.some(e => e.symbol.toUpperCase() === rawSym.toUpperCase());
-      if (!hasSymEvent && isTwCode) {
+      if (!hasSymEvent) {
+        let symbolsToTryQuote: string[] = [rawSym.toUpperCase()];
+        if (isTwCode && !rawSym.includes('.')) {
+          symbolsToTryQuote = [`${cleanSym}.TW`, `${cleanSym}.TWO`];
+        }
+
+        for (const s of symbolsToTryQuote) {
+          try {
+            const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(s)}`;
+            const qData = await fetchWithTimeout(url, 4000);
+            const qRes = qData?.quoteResponse?.result?.[0];
+            if (qRes) {
+              const divRate = Number(qRes.trailingAnnualDividendRate || qRes.dividendRate || 0);
+              if (divRate > 0) {
+                eventsResult.push({
+                  symbol: rawSym.toUpperCase(),
+                  exDate: '',
+                  exDateTs: 0,
+                  amount: divRate,
+                  type: '息',
+                });
+                break;
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      // Check 5: Fubon Neo / Fugle Market Data API Fallback (富邦新一代 API / Fugle 備援)
+      const hasSymEventFinal = eventsResult.some(e => e.symbol.toUpperCase() === rawSym.toUpperCase());
+      if (!hasSymEventFinal && isTwCode) {
         const fubonFallback = await fetchFubonFugleDividendFallback(cleanSym);
         if (fubonFallback) {
           eventsResult.push({

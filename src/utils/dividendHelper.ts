@@ -50,6 +50,7 @@ export const KNOWN_DIVIDENDS: Record<string, KnownDividendProfile> = {
   '2317': { annualDps: 5.4, frequency: '年配息', exMonths: [7] },
   '2454': { annualDps: 55.0, frequency: '半年配', exMonths: [1, 7] },
   '6691': { annualDps: 21.0, stockDps: 1.0, frequency: '年配息', exMonths: [8], exactExDate: '2026/08/20' }, // 洋基工程 2026/08/20 除權息：現金 21 元 + 股票 1.0 元 (配股率 10%)
+  '6944': { annualDps: 8.5, frequency: '年配息', exMonths: [7] }, // 兆聯實業 2025/2026 配息 8.5 元
   '1229': { annualDps: 1.8, stockDps: 0.2, frequency: '年配息', exMonths: [7] }, // 聯華：現金 1.8 元 + 股票 0.2 元
   '2881': { annualDps: 2.5, stockDps: 0.5, frequency: '年配息', exMonths: [7] }, // 富邦金
   '2882': { annualDps: 2.8, frequency: '年配息', exMonths: [7] }, // 國泰金
@@ -115,7 +116,7 @@ export function getStockDividendInfo(
       frequency = '季配息';
       exMonths = [3, 6, 9, 12];
     } else {
-      annualDps = currentPrice * 0.04;
+      annualDps = 0; // 當官方未公告且非已知清單時，設為 0 元（避免虛構 4% 數字），使用者亦可隨時於卡片校正
       frequency = '年配息';
       exMonths = [7];
     }
