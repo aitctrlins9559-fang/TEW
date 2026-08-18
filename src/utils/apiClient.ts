@@ -252,10 +252,15 @@ export interface DividendEventItem {
   type?: string; // '息' | '權' | '權息'
 }
 
-export async function apiFetchDividends(symbols: string[]): Promise<DividendEventItem[]> {
+export async function apiFetchDividends(symbols: string[], forceRefresh = false): Promise<DividendEventItem[]> {
   if (!symbols || symbols.length === 0) return [];
   try {
-    const res = await fetchWithTimeout(`/api/dividends?symbols=${encodeURIComponent(symbols.join(','))}`, {}, 6000);
+    const timestamp = Date.now();
+    const res = await fetchWithTimeout(
+      `/api/dividends?symbols=${encodeURIComponent(symbols.join(','))}&_t=${timestamp}`,
+      { cache: forceRefresh ? 'no-store' : 'no-cache' },
+      8000
+    );
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.events)) {

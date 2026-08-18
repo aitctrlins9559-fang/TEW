@@ -336,16 +336,23 @@ export default function App() {
   }, []);
 
   // Fetch Live Official Ex-Dividend Events
-  const fetchOfficialDividends = useCallback(async () => {
+  const fetchOfficialDividends = useCallback(async (forceRefresh = false) => {
     const currentPortfolio = portfolioRef.current;
     if (!currentPortfolio || currentPortfolio.length === 0) return;
     try {
       const rawSymbols = currentPortfolio.map((p) => p.symbol);
-      const events = await apiFetchDividends(rawSymbols);
+      const events = await apiFetchDividends(rawSymbols, forceRefresh);
       const map: Record<string, { exDate: string; amount: number; stockDps?: number; exDateTs: number }> = {};
       events.forEach((ev) => {
         const key = ev.symbol.toUpperCase();
-        if (!map[key] || ev.exDateTs > map[key].exDateTs) {
+        const totalDps = (ev.amount || 0) + (ev.stockDps || 0);
+        const existingTotal = map[key] ? ((map[key].amount || 0) + (map[key].stockDps || 0)) : 0;
+
+        if (
+          !map[key] ||
+          totalDps > existingTotal ||
+          (totalDps === existingTotal && ev.exDateTs > map[key].exDateTs)
+        ) {
           map[key] = { exDate: ev.exDate, amount: ev.amount, stockDps: ev.stockDps, exDateTs: ev.exDateTs };
         }
       });
@@ -360,8 +367,8 @@ export default function App() {
     setIsFetchingPrices(true);
     const tStart = performance.now();
 
-    // Trigger dividend sync alongside prices
-    fetchOfficialDividends();
+    // Trigger dividend sync alongside prices with forceRefresh option
+    fetchOfficialDividends(isManual);
 
     try {
       // 1. Fetch USD rate

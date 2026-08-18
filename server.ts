@@ -289,6 +289,10 @@ async function fetchFubonFugleDividendFallback(symbol: string): Promise<{
 
 // 4. Stock Dividend Endpoint (Returns both Cash Dividend 配息 and Stock Dividend 配股 from TWSE OpenAPI & TWT48U)
 app.get('/api/dividends', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+
   const symbolsParam = String(req.query.symbols || req.query.symbol || '').trim();
   if (!symbolsParam) return res.json({ success: true, events: [] });
 
@@ -367,7 +371,12 @@ app.get('/api/dividends', async (req, res) => {
       const yr = String(item['股利年度'] || item['Year'] || '');
       const existing = twseDistributionMap[sym];
 
-      if (!existing || (cashDps > 0 && existing.cashDps === 0) || (cashDps > 0 && Number(yr) >= Number(existing.year || 0))) {
+      const newTotalDps = cashDps + stockDps;
+      const existingTotalDps = (existing?.cashDps || 0) + (existing?.stockDps || 0);
+      const newYr = Number(yr || 0);
+      const existingYr = Number(existing?.year || 0);
+
+      if (!existing || newYr > existingYr || (newYr === existingYr && newTotalDps > existingTotalDps)) {
         twseDistributionMap[sym] = {
           name: (item['公司名稱'] || item['SecuritiesCompanyName'])?.toString()?.trim() || '',
           year: yr,
